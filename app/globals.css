@@ -1,0 +1,182 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  /* Fonts */
+  --font-sans: var(--font-frank-ruhl), var(--font-baskerville), Georgia, "Times New Roman", serif;
+  --font-display: var(--font-cormorant), var(--font-frank-ruhl), Georgia, "Times New Roman", serif;
+  --font-mono: ui-monospace, "Courier New", monospace;
+
+  /* shadcn core tokens */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+
+  /* ResolveAI brand palette → Tailwind utilities */
+  --color-navy-950: var(--ra-navy-950);
+  --color-navy-900: var(--ra-navy-900);
+  --color-navy-800: var(--ra-navy-800);
+  --color-navy-700: var(--ra-navy-700);
+  --color-gold-700: var(--ra-gold-700);
+  --color-gold-500: var(--ra-gold-500);
+  --color-gold-300: var(--ra-gold-300);
+  --color-gold-100: var(--ra-gold-100);
+  --color-cream-50: var(--ra-cream-50);
+  --color-cream-100: var(--ra-cream-100);
+}
+
+:root {
+  /* === ResolveAI Brand Palette === */
+  --ra-navy-950: hsl(215, 52%, 10%);
+  --ra-navy-900: hsl(215, 50%, 14%);
+  --ra-navy-800: hsl(215, 45%, 20%);
+  --ra-navy-700: hsl(215, 40%, 28%);
+  --ra-gold-700: hsl(42, 58%, 37%);
+  --ra-gold-500: hsl(42, 50%, 53%);
+  --ra-gold-300: hsl(42, 48%, 72%);
+  --ra-gold-100: hsl(42, 55%, 90%);
+  --ra-cream-50: hsl(40, 35%, 97%);
+  --ra-cream-100: hsl(40, 22%, 91%);
+
+  /* === shadcn theme (Navy / Gold / Cream) === */
+  --background: hsl(40, 35%, 97%);
+  --foreground: hsl(215, 50%, 14%);
+  --card: hsl(0, 0%, 100%);
+  --card-foreground: hsl(215, 50%, 14%);
+  --popover: hsl(0, 0%, 100%);
+  --popover-foreground: hsl(215, 50%, 14%);
+  --primary: hsl(215, 45%, 20%);
+  --primary-foreground: hsl(40, 35%, 97%);
+  --secondary: hsl(40, 22%, 91%);
+  --secondary-foreground: hsl(215, 45%, 20%);
+  --muted: hsl(40, 20%, 93%);
+  --muted-foreground: hsl(215, 20%, 45%);
+  --accent: hsl(42, 50%, 53%);
+  --accent-foreground: hsl(215, 50%, 14%);
+  --destructive: hsl(0, 65%, 48%);
+  --border: hsl(42, 28%, 78%);
+  --input: hsl(42, 20%, 86%);
+  --ring: hsl(42, 50%, 53%);
+  --radius: 0.2rem;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: var(--font-display);
+  }
+}
+
+/* Decorative gold rule */
+.gold-rule {
+  display: block;
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    transparent,
+    var(--ra-gold-500),
+    transparent
+  );
+}
+
+.gold-rule-start {
+  display: block;
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    var(--ra-gold-500) 0%,
+    var(--ra-gold-300) 60%,
+    transparent 100%
+  );
+}
+
+/* Smooth section transitions */
+section {
+  position: relative;
+}
+
+/* Print styles for verdict page */
+@media print {
+  .no-print,
+  header,
+  footer,
+  nav {
+    display: none !important;
+  }
+
+  body {
+    background: white !important;
+    color: #1a1a2e !important;
+  }
+
+  main {
+    background: white !important;
+  }
+
+  /* Verdict header — make readable on paper */
+  .border-b[style*="navy-950"],
+  div[style*="navy-950"],
+  div[style*="navy-900"] {
+    background: #f5f0e8 !important;
+    color: #1a1a2e !important;
+    border-color: #c8a84b !important;
+  }
+
+  /* Keep gold accent on finding block */
+  .border-s-4 {
+    border-color: #c8a84b !important;
+    background: #fdf8f0 !important;
+  }
+
+  /* Avoid breaking sections across pages */
+  .mb-10 {
+    page-break-inside: avoid;
+  }
+
+  /* Force all text to print dark */
+  * {
+    color: #1a1a2e !important;
+  }
+
+  p[style*="gold"],
+  span[style*="gold"] {
+    color: #8b6914 !important;
+  }
+}
