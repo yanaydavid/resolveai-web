@@ -94,7 +94,9 @@ export default function NewCasePage() {
   const [selectedFiles, setSelectedFiles] = useState<FileList | null>(null);
   const [successData, setSuccessData] = useState<SuccessData | null>(null);
   const [copied, setCopied] = useState(false);
+  const [customCategory, setCustomCategory] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const customCategoryRef = useRef<HTMLInputElement>(null);
 
   const {
     register,
@@ -132,7 +134,13 @@ export default function NewCasePage() {
       const res = await fetch("/api/submit-claim", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...data, lang }),
+        body: JSON.stringify({
+        ...data,
+        category: data.category === "other" && customCategory.trim()
+          ? customCategory.trim()
+          : data.category,
+        lang,
+      }),
       });
 
       if (!res.ok) throw new Error("API error");
@@ -529,7 +537,12 @@ export default function NewCasePage() {
                       <button
                         key={cat.value}
                         type="button"
-                        onClick={() => setValue("category", cat.value)}
+                        onClick={() => {
+                          setValue("category", cat.value);
+                          if (cat.value === "other") {
+                            setTimeout(() => customCategoryRef.current?.focus(), 50);
+                          }
+                        }}
                         className="px-4 py-3 text-sm text-start border transition-colors"
                         style={{
                           borderColor: isSelected
@@ -550,6 +563,31 @@ export default function NewCasePage() {
                     );
                   })}
                 </div>
+
+                {/* Custom category input — shown only when "אחר" is selected */}
+                {selectedCategory === "other" && (
+                  <div className="mt-3">
+                    <input
+                      ref={customCategoryRef}
+                      type="text"
+                      value={customCategory}
+                      onChange={(e) => setCustomCategory(e.target.value)}
+                      placeholder={lang === "he" ? "פרטו את סוג המחלוקת..." : "Describe the dispute type..."}
+                      style={{
+                        ...inputStyle,
+                        borderColor: "var(--ra-gold-500)",
+                        backgroundColor: "var(--ra-gold-100)",
+                      }}
+                      onFocus={(e) =>
+                        Object.assign(e.currentTarget.style, { borderColor: "var(--ra-navy-800)" })
+                      }
+                      onBlur={(e) =>
+                        Object.assign(e.currentTarget.style, { borderColor: "var(--ra-gold-500)" })
+                      }
+                    />
+                  </div>
+                )}
+
                 <FieldError
                   message={errors.category && f.errors.required}
                 />
