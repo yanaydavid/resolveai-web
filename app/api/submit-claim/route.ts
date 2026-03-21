@@ -60,6 +60,21 @@ export async function POST(req: NextRequest) {
 
     const respondUrl = `${origin}/respond?c=${token}`;
 
+    // Shorten the URL for WhatsApp (token is very long)
+    let shortUrl = respondUrl;
+    try {
+      const tinyRes = await fetch(
+        `https://tinyurl.com/api-create.php?url=${encodeURIComponent(respondUrl)}`,
+        { signal: AbortSignal.timeout(4000) }
+      );
+      if (tinyRes.ok) {
+        const tiny = await tinyRes.text();
+        if (tiny.startsWith("https://")) shortUrl = tiny.trim();
+      }
+    } catch {
+      // If shortener fails, use full URL — not critical
+    }
+
     // Send WhatsApp to defendant if phone provided
     const accountSid = readEnvKey("TWILIO_ACCOUNT_SID");
     const authToken = readEnvKey("TWILIO_AUTH_TOKEN");
@@ -75,8 +90,8 @@ export async function POST(req: NextRequest) {
 
         const message =
           lang === "he"
-            ? `🏛️ *ResolveAI — הודעה רשמית*\n\nשלום ${partyTwoName},\n\n${partyOneName} הגיש/ה נגדך בקשה לבוררות ב-ResolveAI.\n\n*פרטי התיק:*\n• מספר תיק: ${caseId}\n• כותרת: ${caseTitle}\n• קטגוריה: ${category}\n\n⚖️ *יש לך זכות להגיש את עמדתך לפני מתן הפסיקה.*\n\nלחץ/י על הקישור הבא להגשת תגובתך:\n${respondUrl}\n\n_ResolveAI — בוררות חכמה מבוססת בינה מלאכותית_`
-            : `🏛️ *ResolveAI — Official Notice*\n\nDear ${partyTwoName},\n\n${partyOneName} has filed an arbitration request against you on ResolveAI.\n\n*Case Details:*\n• Case ID: ${caseId}\n• Title: ${caseTitle}\n• Category: ${category}\n\n⚖️ *You have the right to submit your position before a decision is rendered.*\n\nClick the link below to submit your response:\n${respondUrl}\n\n_ResolveAI — Smart AI-Powered Arbitration_`;
+            ? `*ResolveAI — הודעה רשמית*\n\nשלום ${partyTwoName},\n\n${partyOneName} הגיש/ה נגדך בקשה לבוררות ב-ResolveAI.\n\n*פרטי התיק:*\n• מספר תיק: ${caseId}\n• כותרת: ${caseTitle}\n• קטגוריה: ${category}\n\n*יש לך זכות להגיש את עמדתך לפני מתן הפסיקה.*\n\nלחץ/י על הקישור הבא להגשת תגובתך:\n${shortUrl}\n\n_ResolveAI — בוררות חכמה מבוססת בינה מלאכותית_`
+            : `*ResolveAI — Official Notice*\n\nDear ${partyTwoName},\n\n${partyOneName} has filed an arbitration request against you on ResolveAI.\n\n*Case Details:*\n• Case ID: ${caseId}\n• Title: ${caseTitle}\n• Category: ${category}\n\n*You have the right to submit your position before a decision is rendered.*\n\nClick the link below to submit your response:\n${shortUrl}\n\n_ResolveAI — Smart AI-Powered Arbitration_`;
 
         await client.messages.create({
           from,
