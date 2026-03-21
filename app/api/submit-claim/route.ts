@@ -104,7 +104,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    return NextResponse.json({ caseId, respondUrl, token });
+    return NextResponse.json({ caseId, respondUrl, shortUrl, token });
   } catch (err) {
     console.error("submit-claim error:", err);
     return NextResponse.json({ error: "Failed to submit claim" }, { status: 500 });

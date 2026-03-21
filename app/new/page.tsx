@@ -82,6 +82,7 @@ function SectionHeading({ label, title }: { label: string; title: string }) {
 interface SuccessData {
   caseId: string;
   respondUrl: string;
+  shortUrl: string;
   hasPhone: boolean;
 }
 
@@ -149,6 +150,7 @@ export default function NewCasePage() {
       setSuccessData({
         caseId: result.caseId,
         respondUrl: result.respondUrl,
+        shortUrl: result.shortUrl || result.respondUrl,
         hasPhone: !!data.partyTwoPhone,
       });
     } catch {
@@ -160,7 +162,7 @@ export default function NewCasePage() {
   async function copyLink() {
     if (!successData) return;
     try {
-      await navigator.clipboard.writeText(successData.respondUrl);
+      await navigator.clipboard.writeText(successData.shortUrl);
       setCopied(true);
       setTimeout(() => setCopied(false), 3000);
     } catch {
@@ -241,10 +243,10 @@ export default function NewCasePage() {
               </p>
               <div className="flex gap-3 items-center">
                 <p
-                  className="text-xs flex-1 break-all"
+                  className="text-sm flex-1 break-all"
                   style={{ color: "hsl(215 20% 38%)", fontFamily: "var(--font-sans)" }}
                 >
-                  {successData.respondUrl}
+                  {successData.shortUrl}
                 </p>
                 <button
                   onClick={copyLink}
