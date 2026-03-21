@@ -53,6 +53,21 @@ interface CaseData {
   submittedAt: string;
 }
 
+const CATEGORY_LABELS: Record<string, { he: string; en: string }> = {
+  business:   { he: "מסחרי ועסקי",    en: "Commercial & Business" },
+  property:   { he: 'נדל"ן ורכוש',    en: "Real Estate & Property" },
+  financial:  { he: "פיננסי וכספי",   en: "Financial" },
+  employment: { he: "עבודה ותעסוקה",  en: "Employment" },
+  contract:   { he: "הפרת חוזה",      en: "Contract Breach" },
+  other:      { he: "אחר",            en: "Other" },
+};
+
+function getCategoryLabel(value: string, lang: string): string {
+  const entry = CATEGORY_LABELS[value];
+  if (!entry) return value;
+  return lang === "he" ? entry.he : entry.en;
+}
+
 function RespondContent() {
   const { t, lang } = useLanguage();
   const r = t.respond;
@@ -81,29 +96,22 @@ function RespondContent() {
 
   useEffect(() => {
     const token = searchParams.get("c");
-    if (!token) {
-      setParseError(true);
-      return;
-    }
+    if (!token) { setParseError(true); return; }
     try {
-      const decoded = Buffer.from(token, "base64url").toString("utf8");
+      // Decode base64url → binary → UTF-8 (handles Hebrew correctly in browser)
+      const base64 = token.replace(/-/g, "+").replace(/_/g, "/");
+      const padded = base64 + "==".slice((base64.length % 4) || 2);
+      const binary = atob(padded);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      const decoded = new TextDecoder("utf-8").decode(bytes);
       const data = JSON.parse(decoded) as CaseData;
       setCaseData(data);
       const dl = addBusinessDays(new Date(data.submittedAt), 14);
       setDeadline(dl);
       setIsExpired(new Date() > dl);
     } catch {
-      try {
-        // Fallback: try standard atob
-        const decoded = atob(token.replace(/-/g, "+").replace(/_/g, "/"));
-        const data = JSON.parse(decoded) as CaseData;
-        setCaseData(data);
-        const dl = addBusinessDays(new Date(data.submittedAt), 14);
-        setDeadline(dl);
-        setIsExpired(new Date() > dl);
-      } catch {
-        setParseError(true);
-      }
+      setParseError(true);
     }
   }, [searchParams]);
 
@@ -268,7 +276,6 @@ function RespondContent() {
                   className="text-sm font-semibold mb-2"
                   style={{ color: "hsl(0 55% 35%)", fontFamily: "var(--font-sans)" }}
                 >
-                  ⏰{" "}
                   {lang === "he"
                     ? "המועד האחרון להגשת עמדת הנתבע חלף"
                     : "The deadline for the respondent's submission has passed"}
@@ -295,7 +302,7 @@ function RespondContent() {
                 >
                   {requestingOneSided
                     ? (lang === "he" ? "מנתח..." : "Analyzing...")
-                    : (lang === "he" ? "⚖️ בקש פסיקה בהיעדר נתבע" : "⚖️ Request Decision Without Respondent")}
+                    : (lang === "he" ? "בקש פסיקה בהיעדר נתבע" : "Request Decision Without Respondent")}
                 </button>
               </div>
             ) : (
@@ -310,7 +317,7 @@ function RespondContent() {
                   className="text-sm font-semibold mb-1"
                   style={{ color: "var(--ra-navy-900)", fontFamily: "var(--font-sans)" }}
                 >
-                  ⚖️ {r.noticeTitle}
+                  {r.noticeTitle}
                 </p>
                 <p
                   className="text-sm leading-relaxed"
@@ -323,7 +330,6 @@ function RespondContent() {
                     className="text-xs mt-3"
                     style={{ color: "hsl(215 20% 48%)", fontFamily: "var(--font-sans)" }}
                   >
-                    📅{" "}
                     {lang === "he"
                       ? `מועד אחרון להגשה: ${formatDate(deadline, lang)}`
                       : `Submission deadline: ${formatDate(deadline, lang)}`}
@@ -390,7 +396,7 @@ function RespondContent() {
                     className="text-base"
                     style={{ color: "var(--ra-navy-900)", fontFamily: "var(--font-sans)" }}
                   >
-                    {caseData.category}
+                    {getCategoryLabel(caseData.category, lang)}
                   </p>
                 </div>
 
