@@ -84,6 +84,7 @@ interface SuccessData {
   respondUrl: string;
   shortUrl: string;
   hasPhone: boolean;
+  partyTwoName: string;
 }
 
 export default function NewCasePage() {
@@ -152,6 +153,7 @@ export default function NewCasePage() {
         respondUrl: result.respondUrl,
         shortUrl: result.shortUrl || result.respondUrl,
         hasPhone: !!data.partyTwoPhone,
+        partyTwoName: data.partyTwoName,
       });
     } catch {
       setApiError(f.errors.apiError);
@@ -230,45 +232,20 @@ export default function NewCasePage() {
               </div>
             )}
 
-            {/* Copy link box */}
+            {/* Success message */}
             <div
-              className="p-6 mb-4 border text-start"
-              style={{ borderColor: "var(--ra-gold-200, var(--ra-gold-300))", backgroundColor: "white" }}
+              className="p-6 mb-12 border text-center"
+              style={{ borderColor: "var(--ra-gold-300)", backgroundColor: "hsl(42 55% 96%)" }}
             >
               <p
-                className="text-xs tracking-[0.15em] uppercase mb-3"
-                style={{ color: "hsl(215 20% 48%)", fontFamily: "var(--font-sans)" }}
+                className="text-lg font-light"
+                style={{ color: "var(--ra-navy-900)", fontFamily: "var(--font-display)" }}
               >
-                {s.respondLinkLabel}
+                {lang === "he"
+                  ? `כתב התביעה הועבר בהצלחה ל${successData.partyTwoName}`
+                  : `The claim was successfully sent to ${successData.partyTwoName}`}
               </p>
-              <div className="flex gap-3 items-center">
-                <p
-                  className="text-sm flex-1 break-all"
-                  style={{ color: "hsl(215 20% 38%)", fontFamily: "var(--font-sans)" }}
-                >
-                  {successData.shortUrl}
-                </p>
-                <button
-                  onClick={copyLink}
-                  className="shrink-0 px-4 py-2 text-xs tracking-[0.12em] uppercase font-semibold transition-colors"
-                  style={{
-                    backgroundColor: copied ? "var(--ra-gold-700)" : "var(--ra-gold-500)",
-                    color: "var(--ra-navy-950)",
-                    fontFamily: "var(--font-sans)",
-                    border: "none",
-                    cursor: "pointer",
-                  }}
-                >
-                  {copied ? s.copiedBtn : s.copyBtn}
-                </button>
-              </div>
             </div>
-            <p
-              className="text-xs mb-12"
-              style={{ color: "hsl(215 15% 55%)", fontFamily: "var(--font-sans)" }}
-            >
-              {s.copyNote}
-            </p>
 
             {/* Actions */}
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -516,8 +493,7 @@ export default function NewCasePage() {
                     className="text-xs mt-1.5 flex items-center gap-1"
                     style={{ color: "hsl(215 15% 55%)", fontFamily: "var(--font-sans)" }}
                   >
-                    <span>📱</span>
-                    {f.fields.phoneNote}
+                      {f.fields.phoneNote}
                   </p>
                 </div>
               </div>
