@@ -80,6 +80,9 @@ export async function POST(req: NextRequest) {
     const authToken = readEnvKey("TWILIO_AUTH_TOKEN");
     const from = readEnvKey("TWILIO_WHATSAPP_FROM");
 
+    let whatsappError: string | null = null;
+    let whatsappSid: string | null = null;
+
     if (partyTwoPhone && accountSid && authToken) {
       try {
         const client = twilio(accountSid, authToken);
@@ -93,18 +96,22 @@ export async function POST(req: NextRequest) {
             ? `*ResolveAI — הודעה רשמית*\n\nשלום ${partyTwoName},\n\n${partyOneName} הגיש/ה נגדך בקשה לבוררות ב-ResolveAI.\n\n*פרטי התיק:*\n• מספר תיק: ${caseId}\n• כותרת: ${caseTitle}\n• קטגוריה: ${category}\n\n*יש לך זכות להגיש את עמדתך לפני מתן הפסיקה.*\n\nלחץ/י על הקישור הבא להגשת תגובתך:\n${shortUrl}\n\n_ResolveAI — בוררות חכמה מבוססת בינה מלאכותית_`
             : `*ResolveAI — Official Notice*\n\nDear ${partyTwoName},\n\n${partyOneName} has filed an arbitration request against you on ResolveAI.\n\n*Case Details:*\n• Case ID: ${caseId}\n• Title: ${caseTitle}\n• Category: ${category}\n\n*You have the right to submit your position before a decision is rendered.*\n\nClick the link below to submit your response:\n${shortUrl}\n\n_ResolveAI — Smart AI-Powered Arbitration_`;
 
-        await client.messages.create({
+        const msg = await client.messages.create({
           from,
           to: `whatsapp:${phone}`,
           body: message,
         });
-      } catch (err) {
-        console.error("WhatsApp send error:", err);
-        // Non-fatal — continue
+        whatsappSid = msg.sid;
+      } catch (err: unknown) {
+        const e = err as { message?: string };
+        whatsappError = e?.message || String(err);
+        console.error("WhatsApp send error:", whatsappError);
       }
+    } else {
+      whatsappError = `missing: phone=${!!partyTwoPhone} sid=${!!accountSid} token=${!!authToken} from=${!!from}`;
     }
 
-    return NextResponse.json({ caseId, respondUrl, shortUrl, token });
+    return NextResponse.json({ caseId, respondUrl, shortUrl, token, whatsappSid, whatsappError });
   } catch (err) {
     console.error("submit-claim error:", err);
     return NextResponse.json({ error: "Failed to submit claim" }, { status: 500 });
