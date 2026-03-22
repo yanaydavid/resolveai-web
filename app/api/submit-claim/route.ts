@@ -35,6 +35,18 @@ export async function POST(req: NextRequest) {
 
     const caseId = `RA-${Date.now().toString().slice(-8)}`;
 
+    const CATEGORY_HE: Record<string, string> = {
+      business: "מסחרי ועסקי",
+      property: 'נדל"ן ורכוש',
+      financial: "פיננסי וכספי",
+      employment: "עבודה ותעסוקה",
+      contract: "הפרת חוזה",
+      other: "אחר",
+    };
+    const categoryLabel = lang === "he"
+      ? (CATEGORY_HE[category] || category)
+      : category;
+
     // Encode all case data into a base64url token — no DB needed
     const caseData = {
       caseId,
@@ -93,8 +105,8 @@ export async function POST(req: NextRequest) {
 
         const message =
           lang === "he"
-            ? `*ResolveAI — הודעה רשמית*\n\nשלום ${partyTwoName},\n\n${partyOneName} הגיש/ה נגדך בקשה לבוררות ב-ResolveAI.\n\n*פרטי התיק:*\n• מספר תיק: ${caseId}\n• כותרת: ${caseTitle}\n• קטגוריה: ${category}\n\n*יש לך זכות להגיש את עמדתך לפני מתן הפסיקה.*\n\nלחץ/י על הקישור הבא להגשת תגובתך:\n${shortUrl}\n\n_ResolveAI — בוררות חכמה מבוססת בינה מלאכותית_`
-            : `*ResolveAI — Official Notice*\n\nDear ${partyTwoName},\n\n${partyOneName} has filed an arbitration request against you on ResolveAI.\n\n*Case Details:*\n• Case ID: ${caseId}\n• Title: ${caseTitle}\n• Category: ${category}\n\n*You have the right to submit your position before a decision is rendered.*\n\nClick the link below to submit your response:\n${shortUrl}\n\n_ResolveAI — Smart AI-Powered Arbitration_`;
+            ? `*ResolveAI — הודעה רשמית*\n\nשלום ${partyTwoName},\n\n${partyOneName} הגיש/ה נגדך בקשה לבוררות ב-ResolveAI.\n\n*פרטי התיק:*\n• מספר תיק: ${caseId}\n• כותרת: ${caseTitle}\n• קטגוריה: ${categoryLabel}\n\n*יש לך זכות להגיש את עמדתך לפני מתן הפסיקה.*\n\nלחץ/י על הקישור הבא להגשת תגובתך:\n${shortUrl}\n\n_ResolveAI — בוררות חכמה מבוססת בינה מלאכותית_`
+            : `*ResolveAI — Official Notice*\n\nDear ${partyTwoName},\n\n${partyOneName} has filed an arbitration request against you on ResolveAI.\n\n*Case Details:*\n• Case ID: ${caseId}\n• Title: ${caseTitle}\n• Category: ${categoryLabel}\n\n*You have the right to submit your position before a decision is rendered.*\n\nClick the link below to submit your response:\n${shortUrl}\n\n_ResolveAI — Smart AI-Powered Arbitration_`;
 
         const msg = await client.messages.create({
           from,
