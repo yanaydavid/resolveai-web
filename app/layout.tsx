@@ -75,6 +75,7 @@ export const metadata: Metadata = {
       "פסיקת בוררות מבוססת AI תוך דקות — ללא עורכי דין, ללא המתנה.",
     images: ["/logo3.png"],
   },
+  manifest: "/manifest.json",
   robots: {
     index: true,
     follow: true,
@@ -100,6 +101,13 @@ export default function RootLayout({
       className={`${cormorant.variable} ${libreBaskerville.variable} ${frankRuhlLibre.variable}`}
       suppressHydrationWarning
     >
+      <head>
+        <meta name="theme-color" content="#0a0f1e" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="apple-mobile-web-app-title" content="ResolveAI" />
+        <link rel="apple-touch-icon" href="/logo.png" />
+      </head>
       <body className="antialiased">
         <LangProvider>{children}</LangProvider>
       </body>
