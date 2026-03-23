@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import twilio from "twilio";
+import Anthropic from "@anthropic-ai/sdk";
 
 function readEnvKey(key: string): string {
   if (process.env[key]) return process.env[key]!;
@@ -16,38 +17,103 @@ function readEnvKey(key: string): string {
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
-    const {
-      caseTitle,
-      partyOneName,
-      partyOneEmail,
-      partyTwoName,
-      partyTwoEmail,
-      partyTwoPhone,
-      category,
-      description,
-      lang = "he",
-    } = body;
+    const formData = await req.formData();
+
+    const caseTitle     = formData.get("caseTitle")     as string;
+    const partyOneName  = formData.get("partyOneName")  as string;
+    const partyOneEmail = formData.get("partyOneEmail") as string;
+    const partyTwoName  = formData.get("partyTwoName")  as string;
+    const partyTwoEmail = formData.get("partyTwoEmail") as string;
+    const partyTwoPhone = formData.get("partyTwoPhone") as string | null;
+    const category      = formData.get("category")      as string;
+    const description   = formData.get("description")   as string;
+    const lang          = (formData.get("lang") as string) || "he";
+    const file          = formData.get("document")      as File | null;
 
     if (!caseTitle || !partyOneName || !partyTwoName || !description) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
+    if (!file) {
+      return NextResponse.json({ error: "Document is required" }, { status: 400 });
+    }
+
     const caseId = `RA-${Date.now().toString().slice(-8)}`;
 
     const CATEGORY_HE: Record<string, string> = {
-      business: "מסחרי ועסקי",
-      property: 'נדל"ן ורכוש',
-      financial: "פיננסי וכספי",
+      business:   "מסחרי ועסקי",
+      property:   'נדל"ן ורכוש',
+      financial:  "פיננסי וכספי",
       employment: "עבודה ותעסוקה",
-      contract: "הפרת חוזה",
-      other: "אחר",
+      contract:   "הפרת חוזה",
+      other:      "אחר",
     };
     const categoryLabel = lang === "he"
       ? (CATEGORY_HE[category] || category)
       : category;
 
-    // Encode all case data into a base64url token — no DB needed
+    // ── Analyze document with Claude ──────────────────────────
+    let documentSummary = "";
+    let nameFoundInDoc = false;
+
+    try {
+      const anthropic = new Anthropic({ apiKey: readEnvKey("ANTHROPIC_API_KEY") });
+      const bytes = await file.arrayBuffer();
+      const base64 = Buffer.from(bytes).toString("base64");
+      const mimeType = file.type as "image/jpeg" | "image/png" | "image/gif" | "image/webp" | "application/pdf";
+
+      type ContentBlock =
+        | { type: "image"; source: { type: "base64"; media_type: string; data: string } }
+        | { type: "document"; source: { type: "base64"; media_type: string; data: string } }
+        | { type: "text"; text: string };
+
+      const contentBlocks: ContentBlock[] = [];
+
+      if (mimeType.startsWith("image/")) {
+        contentBlocks.push({
+          type: "image",
+          source: { type: "base64", media_type: mimeType, data: base64 },
+        });
+      } else if (mimeType === "application/pdf") {
+        contentBlocks.push({
+          type: "document",
+          source: { type: "base64", media_type: "application/pdf", data: base64 },
+        });
+      }
+
+      contentBlocks.push({
+        type: "text",
+        text: `זהו מסמך שהוגש כראיה בתביעת בוררות.
+שם הנתבע: ${partyTwoName}
+נושא התביעה: ${caseTitle}
+תיאור: ${description}
+
+אנא ענה בעברית על שתי שאלות:
+1. האם שם הנתבע "${partyTwoName}" מופיע במסמך? (כן/לא)
+2. מה הנקודות העיקריות במסמך הרלוונטיות לתביעה? (עד 3 משפטים)
+
+פורמט תשובה:
+נמצא שם: [כן/לא]
+סיכום: [הסיכום]`,
+      });
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const response = await anthropic.messages.create({
+        model: "claude-sonnet-4-6",
+        max_tokens: 512,
+        messages: [{ role: "user", content: contentBlocks as any }],
+      });
+
+      const text = (response.content[0] as { type: string; text: string }).text;
+      nameFoundInDoc = text.includes("נמצא שם: כן");
+      const summaryMatch = text.match(/סיכום:\s*(.+)/s);
+      documentSummary = summaryMatch ? summaryMatch[1].trim() : text;
+    } catch (err) {
+      console.error("Document analysis error:", err);
+      documentSummary = "לא ניתן לנתח את המסמך";
+    }
+
+    // ── Encode case data into token ───────────────────────────
     const caseData = {
       caseId,
       caseTitle,
@@ -59,12 +125,13 @@ export async function POST(req: NextRequest) {
       category,
       description,
       lang,
+      documentSummary,
+      nameFoundInDoc,
       submittedAt: new Date().toISOString(),
     };
 
     const token = Buffer.from(JSON.stringify(caseData)).toString("base64url");
 
-    // Determine the site origin for the respond link
     const origin =
       req.headers.get("origin") ||
       req.headers.get("referer")?.split("/").slice(0, 3).join("/") ||
@@ -72,7 +139,7 @@ export async function POST(req: NextRequest) {
 
     const respondUrl = `${origin}/respond?c=${token}`;
 
-    // Shorten the URL for WhatsApp (token is very long)
+    // Shorten the URL
     let shortUrl = respondUrl;
     try {
       const tinyRes = await fetch(
@@ -84,13 +151,13 @@ export async function POST(req: NextRequest) {
         if (tiny.startsWith("https://")) shortUrl = tiny.trim();
       }
     } catch {
-      // If shortener fails, use full URL — not critical
+      // Not critical
     }
 
-    // Send WhatsApp to defendant if phone provided
+    // ── Send WhatsApp ─────────────────────────────────────────
     const accountSid = readEnvKey("TWILIO_ACCOUNT_SID");
-    const authToken = readEnvKey("TWILIO_AUTH_TOKEN");
-    const from = readEnvKey("TWILIO_WHATSAPP_FROM");
+    const authToken  = readEnvKey("TWILIO_AUTH_TOKEN");
+    const from       = readEnvKey("TWILIO_WHATSAPP_FROM");
 
     let whatsappError: string | null = null;
     let whatsappSid: string | null = null;
@@ -123,7 +190,16 @@ export async function POST(req: NextRequest) {
       whatsappError = `missing: phone=${!!partyTwoPhone} sid=${!!accountSid} token=${!!authToken} from=${!!from}`;
     }
 
-    return NextResponse.json({ caseId, respondUrl, shortUrl, token, whatsappSid, whatsappError });
+    return NextResponse.json({
+      caseId,
+      respondUrl,
+      shortUrl,
+      token,
+      whatsappSid,
+      whatsappError,
+      documentSummary,
+      nameFoundInDoc,
+    });
   } catch (err) {
     console.error("submit-claim error:", err);
     return NextResponse.json({ error: "Failed to submit claim" }, { status: 500 });

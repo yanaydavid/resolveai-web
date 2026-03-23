@@ -93,6 +93,7 @@ export default function NewCasePage() {
   const s = t.claim.success;
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
+  const [documentError, setDocumentError] = useState<string | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<FileList | null>(null);
   const [successData, setSuccessData] = useState<SuccessData | null>(null);
   const [copied, setCopied] = useState(false);
@@ -129,20 +130,38 @@ export default function NewCasePage() {
   };
 
   async function onSubmit(data: FormData) {
+    setDocumentError(null);
+
+    if (!selectedFiles || selectedFiles.length === 0) {
+      setDocumentError(
+        lang === "he"
+          ? "יש להעלות לפחות מסמך אחד לתמיכה בתביעה"
+          : "Please upload at least one supporting document"
+      );
+      return;
+    }
+
     setIsSubmitting(true);
     setApiError(null);
 
     try {
+      const fd = new FormData();
+      fd.append("caseTitle", data.caseTitle);
+      fd.append("partyOneName", data.partyOneName);
+      fd.append("partyOneEmail", data.partyOneEmail);
+      fd.append("partyTwoName", data.partyTwoName);
+      fd.append("partyTwoEmail", data.partyTwoEmail);
+      if (data.partyTwoPhone) fd.append("partyTwoPhone", data.partyTwoPhone);
+      fd.append("category", data.category === "other" && customCategory.trim()
+        ? customCategory.trim()
+        : data.category);
+      fd.append("description", data.description);
+      fd.append("lang", lang);
+      fd.append("document", selectedFiles[0]);
+
       const res = await fetch("/api/submit-claim", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-        ...data,
-        category: data.category === "other" && customCategory.trim()
-          ? customCategory.trim()
-          : data.category,
-        lang,
-      }),
+        body: fd,
       });
 
       if (!res.ok) throw new Error("API error");
@@ -604,9 +623,9 @@ export default function NewCasePage() {
                 />
               </div>
 
-              {/* Documents (UI only) */}
+              {/* Documents (required) */}
               <div className="mb-14">
-                <FieldLabel label={f.fields.documents} />
+                <FieldLabel label={f.fields.documents} required />
                 <div
                   className="border border-dashed p-8 text-center cursor-pointer transition-colors"
                   style={{
@@ -647,11 +666,19 @@ export default function NewCasePage() {
                     ref={fileInputRef}
                     type="file"
                     multiple
-                    accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                    accept=".pdf,.jpg,.jpeg,.png"
                     className="hidden"
-                    onChange={(e) => setSelectedFiles(e.target.files)}
+                    onChange={(e) => {
+                      setSelectedFiles(e.target.files);
+                      setDocumentError(null);
+                    }}
                   />
                 </div>
+                {documentError && (
+                  <p className="text-xs mt-1.5" style={{ color: "hsl(0 65% 48%)", fontFamily: "var(--font-sans)" }}>
+                    {documentError}
+                  </p>
+                )}
               </div>
 
               {/* API Error */}
@@ -692,7 +719,7 @@ export default function NewCasePage() {
                       "var(--ra-navy-800)";
                 }}
               >
-                {isSubmitting ? f.fields.submitting : f.fields.submit}
+                {isSubmitting ? (lang === "he" ? "מנתח מסמכים..." : "Analyzing documents...") : f.fields.submit}
               </button>
             </form>
           </div>
