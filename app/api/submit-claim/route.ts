@@ -90,11 +90,13 @@ export async function POST(req: NextRequest) {
 נושא התביעה: ${caseTitle}
 תיאור: ${description}
 
-אנא ענה בעברית על שתי שאלות:
-1. האם שם הנתבע "${partyTwoName}" מופיע במסמך? (כן/לא)
-2. מה הנקודות העיקריות במסמך הרלוונטיות לתביעה? (עד 3 משפטים)
+אנא ענה בעברית על שלוש שאלות:
+1. האם המסמך רלוונטי לתביעה המתוארת? (כן/לא) — תמונה אישית, מסמך דתי, או כל מסמך שאין לו קשר לנושא התביעה הוא לא רלוונטי.
+2. האם שם הנתבע "${partyTwoName}" מופיע במסמך? (כן/לא)
+3. מה הנקודות העיקריות במסמך הרלוונטיות לתביעה? (עד 3 משפטים)
 
 פורמט תשובה:
+רלוונטי: [כן/לא]
 נמצא שם: [כן/לא]
 סיכום: [הסיכום]`,
       });
@@ -107,6 +109,14 @@ export async function POST(req: NextRequest) {
       });
 
       const text = (response.content[0] as { type: string; text: string }).text;
+
+      if (text.includes("רלוונטי: לא")) {
+        return NextResponse.json(
+          { error: lang === "he" ? "המסמך שהועלה אינו רלוונטי לתביעה. אנא העלה מסמך הקשור לנושא הסכסוך (חוזה, קבלה, תמונת נזק, התכתבות וכד׳)." : "The uploaded document is not relevant to the claim. Please upload a document related to the dispute." },
+          { status: 400 }
+        );
+      }
+
       nameFoundInDoc = text.includes("נמצא שם: כן");
       const summaryMatch = text.match(/סיכום:\s*([\s\S]+)/);
       documentSummary = summaryMatch ? summaryMatch[1].trim() : text;
