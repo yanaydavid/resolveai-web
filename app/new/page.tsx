@@ -14,7 +14,7 @@ const schema = z.object({
   partyOneName: z.string().min(2),
   partyOneEmail: z.string().email(),
   partyTwoName: z.string().min(2),
-  partyTwoEmail: z.string().email(),
+  partyTwoEmail: z.string().email().optional().or(z.literal("")),
   partyTwoPhone: z.string().optional(),
   category: z.string().min(1),
   description: z.string().min(30),
@@ -469,11 +469,11 @@ export default function NewCasePage() {
                     />
                   </div>
                   <div>
-                    <FieldLabel label={f.fields.email} required />
+                    <FieldLabel label={f.fields.email} />
                     <input
                       {...register("partyTwoEmail")}
                       type="email"
-                      placeholder={f.fields.email}
+                      placeholder={lang === "he" ? "אופציונלי" : "Optional"}
                       style={inputStyle}
                       onFocus={(e) =>
                         Object.assign(e.currentTarget.style, inputFocusStyle)

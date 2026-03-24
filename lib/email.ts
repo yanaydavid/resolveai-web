@@ -80,6 +80,111 @@ export async function sendClaimConfirmation(params: {
   });
 }
 
+export async function sendVerdictToDefendant(params: {
+  to: string;
+  defendantName: string;
+  claimantName: string;
+  caseId: string;
+  caseTitle: string;
+  description: string;
+  defendantResponse: string;
+  summary: string;
+  finding: string;
+  rationale: string;
+  nextSteps: string[];
+  heardBothSides: boolean;
+  lang: string;
+}) {
+  const key = getResendKey();
+  if (!key || !params.to) return;
+  const resend = new Resend(key);
+
+  const isHe = params.lang === "he";
+  const stepsHtml = params.nextSteps.map(s => `<li style="margin-bottom:8px;">${s}</li>`).join("");
+
+  await resend.emails.send({
+    from: "ResolveAI <no-reply@resolveai.co.il>",
+    to: params.to,
+    subject: isHe
+      ? `פסיקה בתיק ${params.caseId} — ResolveAI`
+      : `Ruling for Case ${params.caseId} — ResolveAI`,
+    html: isHe ? `
+      <div dir="rtl" style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#1a2744;">
+        <div style="background:#1a2744;padding:32px;text-align:center;">
+          <h1 style="color:#c9a84c;margin:0;font-size:24px;">ResolveAI</h1>
+          <p style="color:#a0907a;margin:8px 0 0;font-size:13px;">פסיקת בוררות</p>
+        </div>
+        <div style="padding:32px;background:#fffdf7;">
+          <h2 style="color:#1a2744;">שלום ${params.defendantName},</h2>
+          <p>להלן סיכום תיק הבוררות <strong>${params.caseId}</strong> שהוגש נגדך.</p>
+
+          <div style="background:white;border:1px solid #e8d9a0;padding:24px;margin:24px 0;">
+            <h3 style="margin:0 0 12px;color:#888;font-size:12px;text-transform:uppercase;letter-spacing:0.1em;">כתב התביעה של ${params.claimantName}</h3>
+            <p style="margin:0;font-size:14px;color:#444;white-space:pre-wrap;">${params.description}</p>
+          </div>
+
+          <div style="background:white;border:1px solid #e8d9a0;padding:24px;margin:24px 0;">
+            <h3 style="margin:0 0 12px;color:#888;font-size:12px;text-transform:uppercase;letter-spacing:0.1em;">כתב ההגנה שלך</h3>
+            <p style="margin:0;font-size:14px;color:#444;white-space:pre-wrap;">${params.defendantResponse}</p>
+          </div>
+
+          <div style="background:#1a2744;color:white;padding:24px;margin:24px 0;border-radius:4px;">
+            <h3 style="margin:0 0 12px;color:#c9a84c;">הכרעה</h3>
+            <p style="margin:0;font-size:14px;">${params.finding}</p>
+          </div>
+
+          <div style="background:white;border:1px solid #e8d9a0;padding:24px;margin:24px 0;">
+            <h3 style="margin:0 0 12px;">סיכום</h3>
+            <p style="margin:0;font-size:14px;color:#444;">${params.summary}</p>
+          </div>
+
+          <div style="background:white;border:1px solid #e8d9a0;padding:24px;margin:24px 0;">
+            <h3 style="margin:0 0 12px;">נימוק</h3>
+            <p style="margin:0;font-size:14px;color:#444;">${params.rationale}</p>
+          </div>
+
+          <div style="background:white;border:1px solid #e8d9a0;padding:24px;margin:24px 0;">
+            <h3 style="margin:0 0 12px;">צעדים הבאים</h3>
+            <ul style="margin:0;padding-right:20px;font-size:14px;color:#444;">${stepsHtml}</ul>
+          </div>
+        </div>
+        <div style="background:#1a2744;padding:16px;text-align:center;">
+          <p style="color:#a0907a;margin:0;font-size:12px;">ResolveAI © 2026 | resolveai.co.il</p>
+        </div>
+      </div>
+    ` : `
+      <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#1a2744;">
+        <div style="background:#1a2744;padding:32px;text-align:center;">
+          <h1 style="color:#c9a84c;margin:0;">ResolveAI</h1>
+        </div>
+        <div style="padding:32px;background:#fffdf7;">
+          <h2>Dear ${params.defendantName},</h2>
+          <p>Below is the summary of arbitration case <strong>${params.caseId}</strong> filed against you.</p>
+          <div style="background:white;border:1px solid #e8d9a0;padding:24px;margin:24px 0;">
+            <h3 style="color:#888;font-size:12px;text-transform:uppercase;">Claim by ${params.claimantName}</h3>
+            <p style="font-size:14px;color:#444;">${params.description}</p>
+          </div>
+          <div style="background:white;border:1px solid #e8d9a0;padding:24px;margin:24px 0;">
+            <h3 style="color:#888;font-size:12px;text-transform:uppercase;">Your Defense</h3>
+            <p style="font-size:14px;color:#444;">${params.defendantResponse}</p>
+          </div>
+          <div style="background:#1a2744;color:white;padding:24px;margin:24px 0;">
+            <h3 style="color:#c9a84c;">Finding</h3>
+            <p style="font-size:14px;">${params.finding}</p>
+          </div>
+          <div style="background:white;border:1px solid #e8d9a0;padding:24px;margin:24px 0;">
+            <h3>Rationale</h3>
+            <p style="font-size:14px;color:#444;">${params.rationale}</p>
+          </div>
+        </div>
+        <div style="background:#1a2744;padding:16px;text-align:center;">
+          <p style="color:#a0907a;margin:0;font-size:12px;">ResolveAI © 2026 | resolveai.co.il</p>
+        </div>
+      </div>
+    `,
+  });
+}
+
 export async function sendVerdictToClaimant(params: {
   to: string;
   claimantName: string;

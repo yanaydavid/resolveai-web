@@ -77,6 +77,7 @@ function RespondContent() {
   const [caseData, setCaseData] = useState<CaseData | null>(null);
   const [parseError, setParseError] = useState(false);
   const [response, setResponse] = useState("");
+  const [defendantEmail, setDefendantEmail] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [fieldError, setFieldError] = useState("");
   const [isExpired, setIsExpired] = useState(false);
@@ -166,7 +167,7 @@ function RespondContent() {
           partyOneName: caseData.partyOneName,
           partyOneEmail: caseData.partyOneEmail,
           partyTwoName: caseData.partyTwoName,
-          partyTwoEmail: caseData.partyTwoEmail,
+          partyTwoEmail: defendantEmail || caseData.partyTwoEmail,
           category: caseData.category,
           description: caseData.description,
           defendantResponse: response,
@@ -429,13 +430,29 @@ function RespondContent() {
 
             {/* Defendant response form */}
             <form onSubmit={onSubmit} noValidate>
-              <div className="mb-4">
+              <div className="mb-6">
                 <p
                   className="text-xs tracking-[0.25em] uppercase mb-6"
                   style={{ color: "var(--ra-gold-500)", fontFamily: "var(--font-sans)" }}
                 >
                   {r.responseSection}
                 </p>
+                <label
+                  className="block text-xs tracking-[0.15em] uppercase mb-2 font-medium"
+                  style={{ color: "hsl(215 30% 38%)", fontFamily: "var(--font-sans)" }}
+                >
+                  {lang === "he" ? "כתובת המייל שלך (לקבלת הפסיקה)" : "Your email (to receive the ruling)"}
+                  <span style={{ color: "var(--ra-gold-700)" }} className="ms-1">*</span>
+                </label>
+                <input
+                  type="email"
+                  value={defendantEmail}
+                  onChange={e => setDefendantEmail(e.target.value)}
+                  placeholder={lang === "he" ? "your@email.com" : "your@email.com"}
+                  style={{ ...inputStyle, marginBottom: "24px" }}
+                  onFocus={e => (e.currentTarget.style.borderColor = "var(--ra-gold-500)")}
+                  onBlur={e => (e.currentTarget.style.borderColor = "var(--ra-gold-300)")}
+                />
                 <label
                   className="block text-xs tracking-[0.15em] uppercase mb-2 font-medium"
                   style={{ color: "hsl(215 30% 38%)", fontFamily: "var(--font-sans)" }}

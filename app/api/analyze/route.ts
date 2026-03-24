@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import fs from "fs";
 import path from "path";
-import { sendVerdictToClaimant } from "@/lib/email";
+import { sendVerdictToClaimant, sendVerdictToDefendant } from "@/lib/email";
 import { updateCaseStatus } from "@/lib/kv-store";
 
 function getAnthropicKey(): string {
@@ -132,6 +132,25 @@ The structure must be exactly:
         caseTitle,
         partyOneName,
         partyTwoName,
+        summary: verdict.summary,
+        finding: verdict.finding,
+        rationale: verdict.rationale,
+        nextSteps: verdict.nextSteps || [],
+        heardBothSides: verdict.heardBothSides,
+        lang,
+      });
+    }
+
+    // ── Send ruling email to defendant ────────────────────────
+    if (body.partyTwoEmail) {
+      await sendVerdictToDefendant({
+        to: body.partyTwoEmail,
+        defendantName: partyTwoName,
+        claimantName: partyOneName,
+        caseId: verdict.caseId,
+        caseTitle,
+        description,
+        defendantResponse: body.defendantResponse || "",
         summary: verdict.summary,
         finding: verdict.finding,
         rationale: verdict.rationale,
