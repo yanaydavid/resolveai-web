@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import fs from "fs";
 import path from "path";
+import { sendVerdictToClaimant } from "@/lib/email";
+import { updateCaseStatus } from "@/lib/kv-store";
 
 function getAnthropicKey(): string {
   if (process.env.ANTHROPIC_API_KEY) return process.env.ANTHROPIC_API_KEY;
@@ -120,6 +122,27 @@ The structure must be exactly:
     verdict.category = verdict.category || category;
     verdict.lang = verdict.lang || lang;
     if (verdict.heardBothSides === undefined) verdict.heardBothSides = hasBothSides;
+
+    // ── Send ruling email to claimant ─────────────────────────
+    if (body.partyOneEmail) {
+      await sendVerdictToClaimant({
+        to: body.partyOneEmail,
+        claimantName: partyOneName,
+        caseId: verdict.caseId,
+        caseTitle,
+        partyOneName,
+        partyTwoName,
+        summary: verdict.summary,
+        finding: verdict.finding,
+        rationale: verdict.rationale,
+        nextSteps: verdict.nextSteps || [],
+        heardBothSides: verdict.heardBothSides,
+        lang,
+      });
+    }
+
+    // ── Update case status in KV ──────────────────────────────
+    await updateCaseStatus(verdict.caseId, "verdict_issued");
 
     return NextResponse.json(verdict);
   } catch (err) {

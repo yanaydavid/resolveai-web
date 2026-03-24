@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import twilio from "twilio";
 import Anthropic from "@anthropic-ai/sdk";
+import { sendClaimConfirmation } from "@/lib/email";
+import { storeCase } from "@/lib/kv-store";
 
 function readEnvKey(key: string): string {
   if (process.env[key]) return process.env[key]!;
@@ -189,6 +191,34 @@ export async function POST(req: NextRequest) {
     } else {
       whatsappError = `missing: phone=${!!partyTwoPhone} sid=${!!accountSid} token=${!!authToken} from=${!!from}`;
     }
+
+    // ── Store in KV ───────────────────────────────────────────
+    await storeCase({
+      caseId,
+      caseTitle,
+      partyOneName,
+      partyOneEmail,
+      partyTwoName,
+      partyTwoEmail,
+      category,
+      submittedAt: new Date().toISOString(),
+      status: "pending",
+      nameFoundInDoc,
+      documentSummary,
+    });
+
+    // ── Send confirmation email to claimant ───────────────────
+    await sendClaimConfirmation({
+      to: partyOneEmail,
+      claimantName: partyOneName,
+      defendantName: partyTwoName,
+      caseId,
+      caseTitle,
+      category: categoryLabel,
+      description,
+      submittedAt: new Date().toISOString(),
+      lang,
+    });
 
     return NextResponse.json({
       caseId,
