@@ -40,6 +40,16 @@ export async function updateCaseStatus(
   }
 }
 
+export async function getCaseById(caseId: string): Promise<CaseSummary | null> {
+  try {
+    const data = await kv.get<CaseSummary>(`case:${caseId}`);
+    return data || null;
+  } catch (err) {
+    console.error("KV get case error:", err);
+    return null;
+  }
+}
+
 export async function getAllCases(): Promise<CaseSummary[]> {
   try {
     const ids = await kv.lrange<string>("cases:all", 0, -1);

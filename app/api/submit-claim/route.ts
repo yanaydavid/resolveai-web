@@ -219,6 +219,8 @@ export async function POST(req: NextRequest) {
     });
 
     // ── Send confirmation email to claimant ───────────────────
+    const trackingUrl = `${origin}/status?id=${caseId}&email=${encodeURIComponent(partyOneEmail)}`;
+
     await sendClaimConfirmation({
       to: partyOneEmail,
       claimantName: partyOneName,
@@ -229,6 +231,7 @@ export async function POST(req: NextRequest) {
       description,
       submittedAt: new Date().toISOString(),
       lang,
+      trackingUrl,
     });
 
     return NextResponse.json({

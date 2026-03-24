@@ -14,6 +14,7 @@ export async function sendClaimConfirmation(params: {
   description: string;
   submittedAt: string;
   lang: string;
+  trackingUrl?: string;
 }) {
   const key = getResendKey();
   if (!key) return;
@@ -48,6 +49,7 @@ export async function sendClaimConfirmation(params: {
             <p style="margin: 8px 0 0; font-size: 14px; color: #444;">${params.description}</p>
           </div>
           <p style="color: #666; font-size: 13px;">הנתבע קיבל הודעה עם קישור להגשת עמדתו. כאשר תינתן הפסיקה — תקבל אותה למייל זה.</p>
+          ${params.trackingUrl ? `<div style="text-align: center; margin: 24px 0;"><a href="${params.trackingUrl}" style="background: #1a2744; color: #c9a84c; padding: 14px 32px; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 15px;">עקוב אחרי התיק שלך</a></div>` : ""}
         </div>
         <div style="background: #1a2744; padding: 16px; text-align: center;">
           <p style="color: #a0907a; margin: 0; font-size: 12px;">ResolveAI © 2026 | resolveai.co.il</p>
