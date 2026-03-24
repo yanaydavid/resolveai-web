@@ -302,6 +302,14 @@ export default function AdminPage() {
                   {selected.nameFoundInDoc ? "כן — אומת" : "לא נמצא"}
                 </p>
               </div>
+              {selected.description && (
+                <div>
+                  <p style={{ color: "#64748b", fontSize: "11px", margin: "0 0 4px", textTransform: "uppercase" }}>תיאור התלונה</p>
+                  <p style={{ color: "#94a3b8", margin: 0, fontSize: "12px", lineHeight: "1.6", whiteSpace: "pre-wrap" }}>
+                    {selected.description}
+                  </p>
+                </div>
+              )}
               {selected.documentSummary && (
                 <div>
                   <p style={{ color: "#64748b", fontSize: "11px", margin: "0 0 4px", textTransform: "uppercase" }}>סיכום מסמך</p>

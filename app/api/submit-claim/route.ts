@@ -211,6 +211,7 @@ export async function POST(req: NextRequest) {
       partyTwoName,
       partyTwoEmail,
       category,
+      description,
       submittedAt: new Date().toISOString(),
       status: "pending",
       nameFoundInDoc,

@@ -10,6 +10,7 @@ export interface CaseSummary {
   partyTwoName: string;
   partyTwoEmail: string;
   category: string;
+  description?: string;
   submittedAt: string;
   status: "pending" | "responded" | "verdict_issued";
   nameFoundInDoc: boolean;
