@@ -108,7 +108,7 @@ export async function POST(req: NextRequest) {
 
       const text = (response.content[0] as { type: string; text: string }).text;
       nameFoundInDoc = text.includes("נמצא שם: כן");
-      const summaryMatch = text.match(/סיכום:\s*(.+)/s);
+      const summaryMatch = text.match(/סיכום:\s*([\s\S]+)/);
       documentSummary = summaryMatch ? summaryMatch[1].trim() : text;
     } catch (err) {
       console.error("Document analysis error:", err);
