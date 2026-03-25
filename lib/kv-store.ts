@@ -1,6 +1,16 @@
 import { Redis } from "@upstash/redis";
 
-const kv = Redis.fromEnv();
+function getKv(): Redis {
+  const url =
+    process.env.UPSTASH_REDIS_REST_URL ||
+    process.env.KV_REST_API_URL ||
+    "";
+  const token =
+    process.env.UPSTASH_REDIS_REST_TOKEN ||
+    process.env.KV_REST_API_TOKEN ||
+    "";
+  return new Redis({ url, token });
+}
 
 export interface CaseSummary {
   caseId: string;
@@ -19,8 +29,8 @@ export interface CaseSummary {
 
 export async function storeCase(data: CaseSummary): Promise<void> {
   try {
-    await kv.set(`case:${data.caseId}`, data);
-    await kv.lpush("cases:all", data.caseId);
+    await getKv().set(`case:${data.caseId}`, data);
+    await getKv().lpush("cases:all", data.caseId);
   } catch (err) {
     console.error("KV store error:", err);
   }
@@ -31,9 +41,9 @@ export async function updateCaseStatus(
   status: CaseSummary["status"]
 ): Promise<void> {
   try {
-    const existing = await kv.get<CaseSummary>(`case:${caseId}`);
+    const existing = await getKv().get<CaseSummary>(`case:${caseId}`);
     if (existing) {
-      await kv.set(`case:${caseId}`, { ...existing, status });
+      await getKv().set(`case:${caseId}`, { ...existing, status });
     }
   } catch (err) {
     console.error("KV update error:", err);
@@ -42,7 +52,7 @@ export async function updateCaseStatus(
 
 export async function getCaseById(caseId: string): Promise<CaseSummary | null> {
   try {
-    const data = await kv.get<CaseSummary>(`case:${caseId}`);
+    const data = await getKv().get<CaseSummary>(`case:${caseId}`);
     return data || null;
   } catch (err) {
     console.error("KV get case error:", err);
@@ -52,7 +62,7 @@ export async function getCaseById(caseId: string): Promise<CaseSummary | null> {
 
 export async function getAllCases(): Promise<CaseSummary[]> {
   try {
-    const ids = await kv.lrange<string>("cases:all", 0, -1);
+    const ids = await getKv().lrange<string>("cases:all", 0, -1);
     if (!ids || ids.length === 0) return [];
     const cases = await Promise.all(
       ids.map((id) => kv.get<CaseSummary>(`case:${id}`))
