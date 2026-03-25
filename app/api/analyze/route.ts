@@ -125,39 +125,43 @@ The structure must be exactly:
 
     // ── Send ruling email to claimant ─────────────────────────
     if (body.partyOneEmail) {
-      await sendVerdictToClaimant({
-        to: body.partyOneEmail,
-        claimantName: partyOneName,
-        caseId: verdict.caseId,
-        caseTitle,
-        partyOneName,
-        partyTwoName,
-        summary: verdict.summary,
-        finding: verdict.finding,
-        rationale: verdict.rationale,
-        nextSteps: verdict.nextSteps || [],
-        heardBothSides: verdict.heardBothSides,
-        lang,
-      });
+      try {
+        await sendVerdictToClaimant({
+          to: body.partyOneEmail,
+          claimantName: partyOneName,
+          caseId: verdict.caseId,
+          caseTitle,
+          partyOneName,
+          partyTwoName,
+          summary: verdict.summary,
+          finding: verdict.finding,
+          rationale: verdict.rationale,
+          nextSteps: verdict.nextSteps || [],
+          heardBothSides: verdict.heardBothSides,
+          lang,
+        });
+      } catch (e) { console.error("Email to claimant failed:", e); }
     }
 
     // ── Send ruling email to defendant ────────────────────────
     if (body.partyTwoEmail) {
-      await sendVerdictToDefendant({
-        to: body.partyTwoEmail,
-        defendantName: partyTwoName,
-        claimantName: partyOneName,
-        caseId: verdict.caseId,
-        caseTitle,
-        description,
-        defendantResponse: body.defendantResponse || "",
-        summary: verdict.summary,
-        finding: verdict.finding,
-        rationale: verdict.rationale,
-        nextSteps: verdict.nextSteps || [],
-        heardBothSides: verdict.heardBothSides,
-        lang,
-      });
+      try {
+        await sendVerdictToDefendant({
+          to: body.partyTwoEmail,
+          defendantName: partyTwoName,
+          claimantName: partyOneName,
+          caseId: verdict.caseId,
+          caseTitle,
+          description,
+          defendantResponse: body.defendantResponse || "",
+          summary: verdict.summary,
+          finding: verdict.finding,
+          rationale: verdict.rationale,
+          nextSteps: verdict.nextSteps || [],
+          heardBothSides: verdict.heardBothSides,
+          lang,
+        });
+      } catch (e) { console.error("Email to defendant failed:", e); }
     }
 
     // ── Update case status in KV ──────────────────────────────
