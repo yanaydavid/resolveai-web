@@ -110,37 +110,12 @@ export async function POST(req: NextRequest) {
 
       const text = (response.content[0] as { type: string; text: string }).text;
 
-      if (text.includes("רלוונטי: לא")) {
-        const CATEGORY_DOCS: Record<string, string> = {
-          business:   "חוזה עסקי, חשבונית, הסכם שותפות, תכתובת עסקית",
-          property:   "חוזה שכירות, חוזה מכר, תמונות הנכס, דוח שמאי",
-          financial:  "חשבונית, אסמכתת תשלום, הסכם הלוואה, דף חשבון בנק",
-          employment: "חוזה עבודה, תלוש שכר, מכתב פיטורים, תכתובת עם המעסיק",
-          contract:   "החוזה המקורי, נספחים, תכתובת על ההפרה, ראיות לנזק",
-          other:      "כל מסמך הקשור ישירות לסכסוך המתואר",
-        };
-        const expectedDocs = CATEGORY_DOCS[category] || "מסמך הקשור ישירות לסכסוך";
-        return NextResponse.json(
-          { error: lang === "he"
-            ? `המסמך שהועלה אינו תואם לקטגוריה "${categoryLabel}". אנא העלה מסמך רלוונטי כגון: ${expectedDocs}.`
-            : `The uploaded document does not match the selected category. Please upload a relevant document such as: ${expectedDocs}.`
-          },
-          { status: 400 }
-        );
-      }
-
       nameFoundInDoc = text.includes("נמצא שם: כן");
       const summaryMatch = text.match(/סיכום:\s*([\s\S]+)/);
       documentSummary = summaryMatch ? summaryMatch[1].trim() : text;
     } catch (err) {
       console.error("Document analysis error:", err);
-      return NextResponse.json(
-        { error: lang === "he"
-          ? "לא הצלחנו לנתח את המסמך שהעלית. אנא ודא שהקובץ תקין (PDF, JPG, PNG) ונסה שוב."
-          : "We could not analyze the uploaded document. Please ensure the file is valid (PDF, JPG, PNG) and try again."
-        },
-        { status: 400 }
-      );
+      documentSummary = "לא ניתן לנתח את המסמך";
     }
 
     // ── Encode case data into token ───────────────────────────
