@@ -268,13 +268,15 @@ export default function NewCasePage() {
 
             {/* Actions */}
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link
-                href="/new"
+              <button
+                onClick={() => { window.location.href = "/new"; }}
                 className="inline-block px-10 py-4 text-xs tracking-[0.2em] uppercase font-semibold transition-colors"
                 style={{
                   backgroundColor: "var(--ra-navy-800)",
                   color: "var(--ra-cream-50)",
                   fontFamily: "var(--font-sans)",
+                  border: "none",
+                  cursor: "pointer",
                 }}
                 onMouseEnter={(e) =>
                   ((e.currentTarget as HTMLElement).style.backgroundColor = "var(--ra-navy-900)")
@@ -284,7 +286,7 @@ export default function NewCasePage() {
                 }
               >
                 {s.newCase}
-              </Link>
+              </button>
               <Link
                 href="/"
                 className="inline-block px-10 py-4 text-xs tracking-[0.2em] uppercase border transition-all"
