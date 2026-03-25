@@ -80,6 +80,93 @@ export async function sendClaimConfirmation(params: {
   });
 }
 
+export async function sendClaimNotificationToDefendant(params: {
+  to: string;
+  defendantName: string;
+  claimantName: string;
+  caseId: string;
+  caseTitle: string;
+  category: string;
+  description: string;
+  respondUrl: string;
+  lang: string;
+}) {
+  const key = getResendKey();
+  if (!key || !params.to) return;
+  const resend = new Resend(key);
+
+  const isHe = params.lang === "he";
+
+  await resend.emails.send({
+    from: "ResolveAI <no-reply@resolveai.co.il>",
+    to: params.to,
+    subject: isHe
+      ? `הגשת כתב תביעה נגדך — תיק ${params.caseId} | ResolveAI`
+      : `Arbitration Claim Filed Against You — Case ${params.caseId} | ResolveAI`,
+    html: isHe ? `
+      <div dir="rtl" style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#1a2744;">
+        <div style="background:#1a2744;padding:32px;text-align:center;">
+          <h1 style="color:#c9a84c;margin:0;font-size:24px;">ResolveAI</h1>
+          <p style="color:#a0907a;margin:8px 0 0;font-size:13px;">הודעה רשמית — כתב תביעה</p>
+        </div>
+        <div style="padding:32px;background:#fffdf7;">
+          <h2 style="color:#1a2744;">שלום ${params.defendantName},</h2>
+          <p style="font-size:15px;line-height:1.6;">
+            <strong>${params.claimantName}</strong> הגיש/ה כנגדך בקשת בוררות דרך מערכת ResolveAI.
+          </p>
+          <div style="background:white;border:1px solid #e8d9a0;padding:24px;margin:24px 0;">
+            <p style="margin:0 0 8px;color:#888;font-size:12px;text-transform:uppercase;letter-spacing:0.1em;">פרטי התיק</p>
+            <p style="margin:4px 0;font-size:14px;"><strong>מספר תיק:</strong> ${params.caseId}</p>
+            <p style="margin:4px 0;font-size:14px;"><strong>נושא:</strong> ${params.caseTitle}</p>
+            <p style="margin:4px 0;font-size:14px;"><strong>קטגוריה:</strong> ${params.category}</p>
+          </div>
+          <div style="background:white;border:1px solid #e8d9a0;padding:24px;margin:24px 0;">
+            <p style="margin:0 0 12px;color:#888;font-size:12px;text-transform:uppercase;letter-spacing:0.1em;">תיאור התביעה</p>
+            <p style="margin:0;font-size:14px;color:#444;white-space:pre-wrap;line-height:1.6;">${params.description}</p>
+          </div>
+          <div style="background:#1a2744;padding:24px;margin:24px 0;text-align:center;">
+            <p style="color:#c9a84c;margin:0 0 8px;font-size:14px;font-weight:bold;">יש לך 14 ימי עסקים להגיש את עמדתך</p>
+            <p style="color:#a0907a;margin:0 0 20px;font-size:13px;">לחץ על הכפתור להלן להגשת כתב הגנה</p>
+            <a href="${params.respondUrl}" style="background:#c9a84c;color:#1a2744;padding:14px 32px;text-decoration:none;font-weight:bold;font-size:14px;display:inline-block;">הגש כתב הגנה</a>
+          </div>
+          <p style="font-size:12px;color:#888;text-align:center;">אם אינך מגיש עמדה תוך 14 ימי עסקים, תינתן פסיקה על סמך פניית התובע בלבד.</p>
+        </div>
+        <div style="background:#1a2744;padding:16px;text-align:center;">
+          <p style="color:#a0907a;margin:0;font-size:12px;">ResolveAI © 2026 | resolveai.co.il | support@resolveai.co.il</p>
+        </div>
+      </div>
+    ` : `
+      <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#1a2744;">
+        <div style="background:#1a2744;padding:32px;text-align:center;">
+          <h1 style="color:#c9a84c;margin:0;">ResolveAI</h1>
+          <p style="color:#a0907a;margin:8px 0 0;font-size:13px;">Official Notice — Arbitration Claim</p>
+        </div>
+        <div style="padding:32px;background:#fffdf7;">
+          <h2>Dear ${params.defendantName},</h2>
+          <p><strong>${params.claimantName}</strong> has filed an arbitration claim against you via ResolveAI.</p>
+          <div style="background:white;border:1px solid #e8d9a0;padding:24px;margin:24px 0;">
+            <p style="color:#888;font-size:12px;text-transform:uppercase;">Case Details</p>
+            <p style="font-size:14px;"><strong>Case ID:</strong> ${params.caseId}</p>
+            <p style="font-size:14px;"><strong>Title:</strong> ${params.caseTitle}</p>
+            <p style="font-size:14px;"><strong>Category:</strong> ${params.category}</p>
+          </div>
+          <div style="background:white;border:1px solid #e8d9a0;padding:24px;margin:24px 0;">
+            <p style="color:#888;font-size:12px;text-transform:uppercase;">Claim Description</p>
+            <p style="font-size:14px;color:#444;">${params.description}</p>
+          </div>
+          <div style="background:#1a2744;padding:24px;margin:24px 0;text-align:center;">
+            <p style="color:#c9a84c;margin:0 0 20px;font-weight:bold;">You have 14 business days to submit your response</p>
+            <a href="${params.respondUrl}" style="background:#c9a84c;color:#1a2744;padding:14px 32px;text-decoration:none;font-weight:bold;display:inline-block;">Submit Defense</a>
+          </div>
+        </div>
+        <div style="background:#1a2744;padding:16px;text-align:center;">
+          <p style="color:#a0907a;margin:0;font-size:12px;">ResolveAI © 2026 | resolveai.co.il</p>
+        </div>
+      </div>
+    `,
+  });
+}
+
 export async function sendVerdictToDefendant(params: {
   to: string;
   defendantName: string;

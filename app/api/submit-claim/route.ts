@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import twilio from "twilio";
 import Anthropic from "@anthropic-ai/sdk";
-import { sendClaimConfirmation } from "@/lib/email";
+import { sendClaimConfirmation, sendClaimNotificationToDefendant } from "@/lib/email";
 import { storeCase } from "@/lib/kv-store";
 
 function readEnvKey(key: string): string {
@@ -233,6 +233,21 @@ export async function POST(req: NextRequest) {
       lang,
       trackingUrl,
     });
+
+    // ── Send notification email to defendant ──────────────────
+    if (partyTwoEmail) {
+      await sendClaimNotificationToDefendant({
+        to: partyTwoEmail,
+        defendantName: partyTwoName,
+        claimantName: partyOneName,
+        caseId,
+        caseTitle,
+        category: categoryLabel,
+        description,
+        respondUrl: shortUrl || respondUrl,
+        lang,
+      });
+    }
 
     return NextResponse.json({
       caseId,
