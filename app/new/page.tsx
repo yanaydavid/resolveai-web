@@ -164,7 +164,13 @@ export default function NewCasePage() {
         body: fd,
       });
 
-      if (!res.ok) throw new Error("API error");
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        const errMsg = errData?.error || f.errors.apiError;
+        setApiError(errMsg);
+        setIsSubmitting(false);
+        return;
+      }
 
       const result = await res.json();
       setSuccessData({
