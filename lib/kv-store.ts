@@ -65,7 +65,7 @@ export async function getAllCases(): Promise<CaseSummary[]> {
     const ids = await getKv().lrange<string>("cases:all", 0, -1);
     if (!ids || ids.length === 0) return [];
     const cases = await Promise.all(
-      ids.map((id) => kv.get<CaseSummary>(`case:${id}`))
+      ids.map((id) => getKv().get<CaseSummary>(`case:${id}`))
     );
     return cases.filter(Boolean) as CaseSummary[];
   } catch (err) {
