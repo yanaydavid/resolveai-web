@@ -134,7 +134,13 @@ export async function POST(req: NextRequest) {
       documentSummary = summaryMatch ? summaryMatch[1].trim() : text;
     } catch (err) {
       console.error("Document analysis error:", err);
-      documentSummary = "לא ניתן לנתח את המסמך";
+      return NextResponse.json(
+        { error: lang === "he"
+          ? "לא הצלחנו לנתח את המסמך שהעלית. אנא ודא שהקובץ תקין (PDF, JPG, PNG) ונסה שוב."
+          : "We could not analyze the uploaded document. Please ensure the file is valid (PDF, JPG, PNG) and try again."
+        },
+        { status: 400 }
+      );
     }
 
     // ── Encode case data into token ───────────────────────────
