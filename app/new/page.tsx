@@ -150,7 +150,7 @@ export default function NewCasePage() {
       fd.append("partyOneName", data.partyOneName);
       fd.append("partyOneEmail", data.partyOneEmail);
       fd.append("partyTwoName", data.partyTwoName);
-      fd.append("partyTwoEmail", data.partyTwoEmail);
+      if (data.partyTwoEmail) fd.append("partyTwoEmail", data.partyTwoEmail);
       if (data.partyTwoPhone) fd.append("partyTwoPhone", data.partyTwoPhone);
       fd.append("category", data.category === "other" && customCategory.trim()
         ? customCategory.trim()
