@@ -73,3 +73,48 @@ export async function getAllCases(): Promise<CaseSummary[]> {
     return [];
   }
 }
+
+// ── Support Tickets ───────────────────────────────────────────
+
+export interface SupportTicket {
+  id: string;
+  from: string;
+  fromName: string;
+  subject: string;
+  body: string;
+  draft: string;
+  token: string;
+  status: "pending" | "sent" | "rejected";
+  createdAt: string;
+}
+
+export async function storeSupportTicket(ticket: SupportTicket): Promise<void> {
+  try {
+    await getKv().set(`support:${ticket.id}`, ticket, { ex: 60 * 60 * 24 * 30 });
+  } catch (err) {
+    console.error("KV support store error:", err);
+  }
+}
+
+export async function getSupportTicket(id: string): Promise<SupportTicket | null> {
+  try {
+    return await getKv().get<SupportTicket>(`support:${id}`) || null;
+  } catch (err) {
+    console.error("KV support get error:", err);
+    return null;
+  }
+}
+
+export async function updateSupportTicket(
+  id: string,
+  updates: Partial<SupportTicket>
+): Promise<void> {
+  try {
+    const existing = await getKv().get<SupportTicket>(`support:${id}`);
+    if (existing) {
+      await getKv().set(`support:${id}`, { ...existing, ...updates }, { ex: 60 * 60 * 24 * 30 });
+    }
+  } catch (err) {
+    console.error("KV support update error:", err);
+  }
+}
