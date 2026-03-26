@@ -214,32 +214,36 @@ export async function POST(req: NextRequest) {
     // ── Send confirmation email to claimant ───────────────────
     const trackingUrl = `${origin}/status?id=${caseId}&email=${encodeURIComponent(partyOneEmail)}`;
 
-    await sendClaimConfirmation({
-      to: partyOneEmail,
-      claimantName: partyOneName,
-      defendantName: partyTwoName,
-      caseId,
-      caseTitle,
-      category: categoryLabel,
-      description,
-      submittedAt: new Date().toISOString(),
-      lang,
-      trackingUrl,
-    });
-
-    // ── Send notification email to defendant ──────────────────
-    if (partyTwoEmail) {
-      await sendClaimNotificationToDefendant({
-        to: partyTwoEmail,
-        defendantName: partyTwoName,
+    try {
+      await sendClaimConfirmation({
+        to: partyOneEmail,
         claimantName: partyOneName,
+        defendantName: partyTwoName,
         caseId,
         caseTitle,
         category: categoryLabel,
         description,
-        respondUrl: shortUrl || respondUrl,
+        submittedAt: new Date().toISOString(),
         lang,
+        trackingUrl,
       });
+    } catch (e) { console.error("Claimant confirmation email failed:", e); }
+
+    // ── Send notification email to defendant ──────────────────
+    if (partyTwoEmail) {
+      try {
+        await sendClaimNotificationToDefendant({
+          to: partyTwoEmail,
+          defendantName: partyTwoName,
+          claimantName: partyOneName,
+          caseId,
+          caseTitle,
+          category: categoryLabel,
+          description,
+          respondUrl: shortUrl || respondUrl,
+          lang,
+        });
+      } catch (e) { console.error("Defendant notification email failed:", e); }
     }
 
     return NextResponse.json({
