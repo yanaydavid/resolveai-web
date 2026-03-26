@@ -78,7 +78,7 @@ function RespondContent() {
   const [parseError, setParseError] = useState(false);
   const [response, setResponse] = useState("");
   const [defendantEmail, setDefendantEmail] = useState("");
-  const [docFile, setDocFile] = useState<File | null>(null);
+  const [docFiles, setDocFiles] = useState<File[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [fieldError, setFieldError] = useState("");
@@ -171,7 +171,7 @@ function RespondContent() {
       fd.append("description", caseData.description);
       fd.append("defendantResponse", response);
       fd.append("lang", caseData.lang || lang);
-      if (docFile) fd.append("document", docFile);
+      docFiles.forEach(f => fd.append("documents", f));
 
       const res = await fetch("/api/submit-defense", {
         method: "POST",
@@ -525,13 +525,31 @@ function RespondContent() {
                   <input
                     type="file"
                     accept=".pdf,.jpg,.jpeg,.png"
-                    onChange={e => setDocFile(e.target.files?.[0] || null)}
+                    multiple
+                    onChange={e => {
+                      const selected = Array.from(e.target.files || []);
+                      setDocFiles(prev => {
+                        const existing = prev.map(f => f.name);
+                        const newFiles = selected.filter(f => !existing.includes(f.name));
+                        return [...prev, ...newFiles];
+                      });
+                      e.target.value = "";
+                    }}
                     style={{ ...inputStyle, padding: "0.5rem 1rem" }}
                   />
-                  {docFile && (
-                    <p className="text-xs mt-1" style={{ color: "hsl(215 20% 48%)", fontFamily: "var(--font-sans)" }}>
-                      {docFile.name}
-                    </p>
+                  {docFiles.length > 0 && (
+                    <ul className="mt-2 space-y-1">
+                      {docFiles.map((f, i) => (
+                        <li key={i} className="flex items-center justify-between text-xs px-3 py-1.5"
+                          style={{ backgroundColor: "hsl(42 55% 96%)", border: "1px solid var(--ra-gold-100)", fontFamily: "var(--font-sans)", color: "hsl(215 20% 38%)" }}>
+                          <span>{f.name}</span>
+                          <button type="button" onClick={() => setDocFiles(prev => prev.filter((_, idx) => idx !== i))}
+                            style={{ color: "hsl(0 55% 50%)", background: "none", border: "none", cursor: "pointer", fontSize: "14px", lineHeight: 1 }}>
+                            ×
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
                   )}
                 </div>
 

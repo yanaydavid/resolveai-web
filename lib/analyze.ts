@@ -15,6 +15,12 @@ function getAnthropicKey(): string {
   }
 }
 
+export interface DocAttachment {
+  buffer: Buffer;
+  mime: string;
+  name?: string;
+}
+
 export interface AnalyzeCaseParams {
   caseId: string;
   caseTitle: string;
@@ -26,6 +32,9 @@ export interface AnalyzeCaseParams {
   description: string;
   defendantResponse?: string;
   lang?: string;
+  /** Multiple defendant documents */
+  docAttachments?: DocAttachment[];
+  /** Legacy single-doc support */
   docBuffer?: Buffer;
   docMime?: string;
 }
@@ -57,31 +66,44 @@ export async function analyzeCase(params: AnalyzeCaseParams): Promise<AnalyzeCas
     description,
     defendantResponse = "",
     lang = "he",
+    docAttachments: rawAttachments,
     docBuffer,
     docMime = "application/pdf",
   } = params;
+
+  // Normalize: support both multi-doc and legacy single-doc
+  const docAttachments: DocAttachment[] =
+    rawAttachments && rawAttachments.length > 0
+      ? rawAttachments
+      : docBuffer && docBuffer.length > 0
+        ? [{ buffer: docBuffer, mime: docMime }]
+        : [];
 
   const client = new Anthropic({ apiKey: getAnthropicKey() });
   const outputLang = lang === "he" ? "Hebrew" : "English";
   const hasBothSides = !!defendantResponse && defendantResponse.trim().length > 10;
 
-  // ── Analyze defendant's document if uploaded ─────────────────
-  let defDocSummary = "";
-  if (docBuffer && docBuffer.length > 0) {
+  // ── Analyze all defendant documents ──────────────────────────
+  const docSummaries: string[] = [];
+  for (let i = 0; i < docAttachments.length; i++) {
+    const { buffer, mime, name } = docAttachments[i];
     try {
-      const base64 = docBuffer.toString("base64");
-      const isImage = docMime.startsWith("image/");
-      const docContent = isImage
-        ? [{ type: "image" as const, source: { type: "base64" as const, media_type: docMime as "image/jpeg" | "image/png" | "image/gif" | "image/webp", data: base64 } }]
-        : [{ type: "document" as const, source: { type: "base64" as const, media_type: "application/pdf" as const, data: base64 } }];
+      const base64   = buffer.toString("base64");
+      const isImage  = mime.startsWith("image/");
+      const docBlock = isImage
+        ? { type: "image" as const,    source: { type: "base64" as const, media_type: mime as "image/jpeg" | "image/png" | "image/gif" | "image/webp", data: base64 } }
+        : { type: "document" as const, source: { type: "base64" as const, media_type: "application/pdf" as const, data: base64 } };
+      const label = name ? `מסמך "${name}"` : `מסמך ${i + 1}`;
       const docRes = await client.messages.create({
         model: "claude-sonnet-4-6",
         max_tokens: 512,
-        messages: [{ role: "user", content: [...docContent, { type: "text" as const, text: `סכם בקצרה (עד 3 משפטים) מה מוכיח מסמך זה לטובת הנתבע ${partyTwoName} בסכסוך: ${caseTitle}` }] }],
+        messages: [{ role: "user", content: [docBlock, { type: "text" as const, text: `סכם בקצרה (עד 3 משפטים) מה מוכיח ${label} לטובת הנתבע ${partyTwoName} בסכסוך: ${caseTitle}` }] }],
       });
-      defDocSummary = (docRes.content[0] as { type: string; text: string }).text;
-    } catch (e) { console.error("Defendant doc analysis failed:", e); }
+      const summary = (docRes.content[0] as { type: string; text: string }).text;
+      docSummaries.push(name ? `[${name}]: ${summary}` : summary);
+    } catch (e) { console.error(`Doc ${i + 1} analysis failed:`, e); }
   }
+  const defDocSummary = docSummaries.join("\n");
 
   const defSection = hasBothSides
     ? `- Respondent's Position (Party 2 — ${partyTwoName}):\n${defendantResponse}${defDocSummary ? `\n- Respondent's Document Evidence: ${defDocSummary}` : ""}`

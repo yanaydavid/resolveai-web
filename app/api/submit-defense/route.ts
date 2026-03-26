@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse, after } from "next/server";
-import { analyzeCase } from "@/lib/analyze";
+import { analyzeCase, DocAttachment } from "@/lib/analyze";
 import { sendDefenseReceived } from "@/lib/email";
 import { updateCaseStatus } from "@/lib/kv-store";
 
@@ -17,18 +17,22 @@ export async function POST(req: NextRequest) {
     const description   = fd.get("description")        as string;
     const defendantResponse = fd.get("defendantResponse") as string;
     const lang          = (fd.get("lang")              as string) || "he";
-    const docFile       = fd.get("document")           as File | null;
+    const docFiles      = fd.getAll("documents") as File[];
 
     if (!caseTitle || !partyOneName || !partyTwoName || !description || !defendantResponse) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
-    // Read file into Buffer NOW (before the request lifecycle ends)
-    let docBuffer: Buffer | undefined;
-    let docMime: string | undefined;
-    if (docFile && docFile.size > 0) {
-      docBuffer = Buffer.from(await docFile.arrayBuffer());
-      docMime = docFile.type || "application/pdf";
+    // Read all files into Buffers NOW (before the request lifecycle ends)
+    const docAttachments: DocAttachment[] = [];
+    for (const file of docFiles) {
+      if (file && file.size > 0) {
+        docAttachments.push({
+          buffer: Buffer.from(await file.arrayBuffer()),
+          mime: file.type || "application/pdf",
+          name: file.name,
+        });
+      }
     }
 
     // Update KV: mark case as "responded"
@@ -62,8 +66,7 @@ export async function POST(req: NextRequest) {
           description,
           defendantResponse,
           lang,
-          docBuffer,
-          docMime,
+          docAttachments,
         });
       } catch (err) {
         console.error("Background analysis failed:", err);
