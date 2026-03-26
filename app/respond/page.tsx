@@ -80,6 +80,7 @@ function RespondContent() {
   const [defendantEmail, setDefendantEmail] = useState("");
   const [docFile, setDocFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
   const [fieldError, setFieldError] = useState("");
   const [isExpired, setIsExpired] = useState(false);
   const [deadline, setDeadline] = useState<Date | null>(null);
@@ -172,16 +173,14 @@ function RespondContent() {
       fd.append("lang", caseData.lang || lang);
       if (docFile) fd.append("document", docFile);
 
-      const res = await fetch("/api/analyze", {
+      const res = await fetch("/api/submit-defense", {
         method: "POST",
         body: fd,
       });
 
       if (!res.ok) throw new Error("API error");
 
-      const verdict = await res.json();
-      sessionStorage.setItem("ra-verdict", JSON.stringify(verdict));
-      router.push("/verdict");
+      setSubmitted(true);
     } catch {
       setFieldError("אירעה שגיאה. אנא נסו שנית.");
       setIsSubmitting(false);
@@ -220,6 +219,58 @@ function RespondContent() {
           style={{ backgroundColor: "var(--ra-cream-50)" }}
         >
           <p style={{ color: "hsl(215 20% 45%)", fontFamily: "var(--font-sans)" }}>...</p>
+        </main>
+        <RaFooter />
+      </>
+    );
+  }
+
+  if (submitted) {
+    return (
+      <>
+        <RaHeader />
+        <main
+          className="flex-1 flex items-center justify-center min-h-[70vh] py-20"
+          style={{ backgroundColor: "var(--ra-cream-50)" }}
+        >
+          <div className="max-w-lg mx-auto px-6 text-center">
+            <span className="gold-rule block w-16 mx-auto mb-10" aria-hidden="true" />
+            <h1
+              className="text-2xl md:text-3xl font-light mb-6"
+              style={{ color: "var(--ra-navy-900)", fontFamily: "var(--font-display)" }}
+            >
+              {lang === "he" ? "כתב ההגנה התקבל" : "Defense Received"}
+            </h1>
+            <p
+              className="text-base leading-relaxed mb-8"
+              style={{ color: "hsl(215 20% 38%)", fontFamily: "var(--font-sans)" }}
+            >
+              {lang === "he"
+                ? `קיבלנו את כתב ההגנה שלך ואת המסמכים. אנחנו עוברים על הכל — ברגע שהבורר יגיע לפסיקה תקבל עדכון למייל עם הפסיקה המלאה.`
+                : `We received your defense and documents. Our arbitrator is reviewing everything — you will receive the ruling by email once the decision is ready.`}
+            </p>
+            <div
+              className="p-5 mb-8 border-s-4 text-start"
+              style={{ borderColor: "var(--ra-gold-500)", backgroundColor: "hsl(42 55% 96%)" }}
+            >
+              <p
+                className="text-sm"
+                style={{ color: "hsl(215 30% 30%)", fontFamily: "var(--font-sans)" }}
+              >
+                {lang === "he"
+                  ? `תיק מספר ${caseData.caseId} — ${caseData.caseTitle}`
+                  : `Case ${caseData.caseId} — ${caseData.caseTitle}`}
+              </p>
+            </div>
+            <p
+              className="text-xs"
+              style={{ color: "hsl(215 20% 55%)", fontFamily: "var(--font-sans)" }}
+            >
+              {lang === "he"
+                ? "ניתן לסגור את הדף. הפסיקה תישלח אליך ישירות למייל."
+                : "You may close this page. The ruling will be sent to your email."}
+            </p>
+          </div>
         </main>
         <RaFooter />
       </>
