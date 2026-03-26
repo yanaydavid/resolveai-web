@@ -22,7 +22,7 @@ export async function sendClaimConfirmation(params: {
 
   const isHe = params.lang === "he";
 
-  await resend.emails.send({
+  const { error } = await resend.emails.send({
     from: "ResolveAI <no-reply@resolveai.co.il>",
     to: params.to,
     subject: isHe
@@ -78,6 +78,7 @@ export async function sendClaimConfirmation(params: {
       </div>
     `,
   });
+  if (error) { console.error("sendClaimConfirmation error:", error); throw new Error(JSON.stringify(error)); }
 }
 
 export async function sendClaimNotificationToDefendant(params: {
@@ -97,7 +98,7 @@ export async function sendClaimNotificationToDefendant(params: {
 
   const isHe = params.lang === "he";
 
-  await resend.emails.send({
+  const { error } = await resend.emails.send({
     from: "ResolveAI <no-reply@resolveai.co.il>",
     to: params.to,
     subject: isHe
@@ -165,6 +166,7 @@ export async function sendClaimNotificationToDefendant(params: {
       </div>
     `,
   });
+  if (error) { console.error("sendClaimNotificationToDefendant error:", error); throw new Error(JSON.stringify(error)); }
 }
 
 export async function sendVerdictToDefendant(params: {
@@ -189,7 +191,7 @@ export async function sendVerdictToDefendant(params: {
   const isHe = params.lang === "he";
   const stepsHtml = params.nextSteps.map(s => `<li style="margin-bottom:8px;">${s}</li>`).join("");
 
-  await resend.emails.send({
+  const { error: verdictDefErr } = await resend.emails.send({
     from: "ResolveAI <no-reply@resolveai.co.il>",
     to: params.to,
     subject: isHe
@@ -270,6 +272,7 @@ export async function sendVerdictToDefendant(params: {
       </div>
     `,
   });
+  if (verdictDefErr) { console.error("sendVerdictToDefendant error:", verdictDefErr); throw new Error(JSON.stringify(verdictDefErr)); }
 }
 
 export async function sendVerdictToClaimant(params: {
@@ -293,7 +296,7 @@ export async function sendVerdictToClaimant(params: {
   const isHe = params.lang === "he";
   const stepsHtml = params.nextSteps.map(s => `<li style="margin-bottom: 8px;">${s}</li>`).join("");
 
-  await resend.emails.send({
+  const { error: verdictClaimErr } = await resend.emails.send({
     from: "ResolveAI <no-reply@resolveai.co.il>",
     to: params.to,
     subject: isHe
@@ -357,4 +360,5 @@ export async function sendVerdictToClaimant(params: {
       </div>
     `,
   });
+  if (verdictClaimErr) { console.error("sendVerdictToClaimant error:", verdictClaimErr); throw new Error(JSON.stringify(verdictClaimErr)); }
 }

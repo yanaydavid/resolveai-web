@@ -78,6 +78,7 @@ function RespondContent() {
   const [parseError, setParseError] = useState(false);
   const [response, setResponse] = useState("");
   const [defendantEmail, setDefendantEmail] = useState("");
+  const [docFile, setDocFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [fieldError, setFieldError] = useState("");
   const [isExpired, setIsExpired] = useState(false);
@@ -158,21 +159,22 @@ function RespondContent() {
     setIsSubmitting(true);
 
     try {
+      const fd = new FormData();
+      fd.append("caseId", caseData.caseId);
+      fd.append("caseTitle", caseData.caseTitle);
+      fd.append("partyOneName", caseData.partyOneName);
+      fd.append("partyOneEmail", caseData.partyOneEmail);
+      fd.append("partyTwoName", caseData.partyTwoName);
+      fd.append("partyTwoEmail", defendantEmail || caseData.partyTwoEmail || "");
+      fd.append("category", caseData.category);
+      fd.append("description", caseData.description);
+      fd.append("defendantResponse", response);
+      fd.append("lang", caseData.lang || lang);
+      if (docFile) fd.append("document", docFile);
+
       const res = await fetch("/api/analyze", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          caseId: caseData.caseId,
-          caseTitle: caseData.caseTitle,
-          partyOneName: caseData.partyOneName,
-          partyOneEmail: caseData.partyOneEmail,
-          partyTwoName: caseData.partyTwoName,
-          partyTwoEmail: defendantEmail || caseData.partyTwoEmail,
-          category: caseData.category,
-          description: caseData.description,
-          defendantResponse: response,
-          lang: caseData.lang || lang,
-        }),
+        body: fd,
       });
 
       if (!res.ok) throw new Error("API error");
@@ -453,6 +455,35 @@ function RespondContent() {
                   onFocus={e => (e.currentTarget.style.borderColor = "var(--ra-gold-500)")}
                   onBlur={e => (e.currentTarget.style.borderColor = "var(--ra-gold-300)")}
                 />
+                {/* Document upload */}
+                <div className="mb-6">
+                  <p
+                    className="text-xs font-bold mb-2"
+                    style={{ color: "hsl(0 65% 45%)", fontFamily: "var(--font-sans)" }}
+                  >
+                    {lang === "he"
+                      ? "העלאת מסמכים תשפר משמעותית את הפסיקה — ללא מסמכים, הבורר יפסוק על בסיס הטענות בלבד."
+                      : "Uploading documents will significantly improve the ruling — without documents, the arbitrator will decide based on claims alone."}
+                  </p>
+                  <label
+                    className="block text-xs tracking-[0.15em] uppercase mb-2 font-medium"
+                    style={{ color: "hsl(215 30% 38%)", fontFamily: "var(--font-sans)" }}
+                  >
+                    {lang === "he" ? "מסמכים רלוונטיים (PDF, JPG, PNG)" : "Relevant Documents (PDF, JPG, PNG)"}
+                  </label>
+                  <input
+                    type="file"
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    onChange={e => setDocFile(e.target.files?.[0] || null)}
+                    style={{ ...inputStyle, padding: "0.5rem 1rem" }}
+                  />
+                  {docFile && (
+                    <p className="text-xs mt-1" style={{ color: "hsl(215 20% 48%)", fontFamily: "var(--font-sans)" }}>
+                      {docFile.name}
+                    </p>
+                  )}
+                </div>
+
                 <label
                   className="block text-xs tracking-[0.15em] uppercase mb-2 font-medium"
                   style={{ color: "hsl(215 30% 38%)", fontFamily: "var(--font-sans)" }}

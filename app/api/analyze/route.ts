@@ -19,7 +19,19 @@ function getAnthropicKey(): string {
 export async function POST(req: NextRequest) {
   const client = new Anthropic({ apiKey: getAnthropicKey() });
   try {
-    const body = await req.json();
+    const contentType = req.headers.get("content-type") || "";
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let body: any;
+    let docFile: File | null = null;
+
+    if (contentType.includes("multipart/form-data")) {
+      const fd = await req.formData();
+      body = Object.fromEntries(fd.entries());
+      docFile = fd.get("document") as File | null;
+    } else {
+      body = await req.json();
+    }
+
     const {
       caseTitle,
       partyOneName,
@@ -43,8 +55,28 @@ export async function POST(req: NextRequest) {
     const caseId = body.caseId || `RA-${Date.now().toString().slice(-8)}`;
     const hasBothSides = !!defendantResponse && defendantResponse.trim().length > 10;
 
+    // ── Analyze defendant's document if uploaded ──────────────
+    let defDocSummary = "";
+    if (docFile && docFile.size > 0) {
+      try {
+        const arrayBuffer = await docFile.arrayBuffer();
+        const base64 = Buffer.from(arrayBuffer).toString("base64");
+        const mime = docFile.type || "application/pdf";
+        const isImage = mime.startsWith("image/");
+        const docContent = isImage
+          ? [{ type: "image" as const, source: { type: "base64" as const, media_type: mime as "image/jpeg" | "image/png" | "image/gif" | "image/webp", data: base64 } }]
+          : [{ type: "document" as const, source: { type: "base64" as const, media_type: "application/pdf" as const, data: base64 } }];
+        const docRes = await client.messages.create({
+          model: "claude-sonnet-4-6",
+          max_tokens: 512,
+          messages: [{ role: "user", content: [...docContent, { type: "text" as const, text: `סכם בקצרה (עד 3 משפטים) מה מוכיח מסמך זה לטובת הנתבע ${partyTwoName} בסכסוך: ${caseTitle}` }] }],
+        });
+        defDocSummary = (docRes.content[0] as { type: string; text: string }).text;
+      } catch (e) { console.error("Defendant doc analysis failed:", e); }
+    }
+
     const defSection = hasBothSides
-      ? `- Respondent's Position (Party 2 — ${partyTwoName}):\n${defendantResponse}`
+      ? `- Respondent's Position (Party 2 — ${partyTwoName}):\n${defendantResponse}${defDocSummary ? `\n- Respondent's Document Evidence: ${defDocSummary}` : ""}`
       : `- Respondent's Position: NOT SUBMITTED — decision based on claimant's account only. Note this clearly in your analysis.`;
 
     const prompt = `You are a senior AI arbitrator with expertise in commercial law, contract disputes, employment law, real estate law, and financial disputes. You approach every case with strict impartiality, basing your analysis exclusively on the facts and arguments presented. Your decisions are thorough, reasoned, and professionally written.
