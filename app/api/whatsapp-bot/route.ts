@@ -3,11 +3,21 @@ import Anthropic from "@anthropic-ai/sdk";
 import twilio from "twilio";
 import fs from "fs";
 import path from "path";
+import {
+  getWAConversation,
+  setWAConversation,
+  addPendingSwitch,
+  removePendingSwitch,
+  WhatsAppConversation,
+} from "@/lib/kv-store";
 
 function readEnvKey(key: string): string {
   if (process.env[key]) return process.env[key]!;
   try {
-    const content = fs.readFileSync(path.join(process.cwd(), ".env.local"), "utf8");
+    const content = fs.readFileSync(
+      path.join(process.cwd(), ".env.local"),
+      "utf8"
+    );
     const match = content.match(new RegExp(`${key}=(.+)`));
     return match ? match[1].trim() : "";
   } catch {
@@ -15,91 +25,119 @@ function readEnvKey(key: string): string {
   }
 }
 
-// In-memory conversation store (resets on server restart; fine for MVP)
-// Key: sender phone number, Value: conversation history
-const conversations = new Map<string, Anthropic.MessageParam[]>();
+const FEMALE_NAMES = ["מיכל", "נועה", "שירה", "לילך", "יעל", "תמר", "אורית"];
+const MALE_NAMES = ["יובל", "רועי", "נועם", "אלון", "עידו", "שחר", "גיל"];
 
-const RESOLVEAI_KNOWLEDGE = `
-You are the AI customer service representative of ResolveAI (רסולב), an Israeli AI-powered arbitration platform. Your name is "Resolve".
+function randomFrom<T>(arr: T[]): T {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
 
-## TONE & STYLE
-- Warm, professional, concise — optimized for WhatsApp chat (short paragraphs, no long walls of text).
-- Respond in the same language as the user (Hebrew or English). If Hebrew, use natural, warm Israeli Hebrew.
-- Use emojis sparingly but naturally (e.g., ⚖️ for legal topics, ✅ for confirmations).
-- Never be robotic. Sound like a knowledgeable, empathetic human representative.
+function pickDifferentName(
+  currentName: string,
+  gender: "female" | "male"
+): string {
+  const pool = gender === "female" ? FEMALE_NAMES : MALE_NAMES;
+  const filtered = pool.filter((n) => n !== currentName);
+  return randomFrom(filtered.length > 0 ? filtered : pool);
+}
 
-## ABOUT RESOLVEAI
-ResolveAI is an AI-powered arbitration platform for resolving disputes quickly, affordably, and fairly — without courts.
-- Founded in Israel, operates under Israeli law.
-- Uses AI (Claude by Anthropic) as the arbitration engine.
-- Two-party arbitration: claimant files, defendant responds, AI renders a full verdict.
-- The verdict is rendered only after both sides are heard (fair process).
-- If defendant doesn't respond within 14 Israeli business days, claimant can request a one-sided verdict.
+function buildSystemPrompt(
+  agentName: string,
+  agentGender: "female" | "male",
+  previousAgentName?: string
+): string {
+  const otherGenderHe = agentGender === "female" ? "נציג גבר" : "נציגה";
+  const handoverNote = previousAgentName
+    ? `\n## HANDOVER\nאתה/את עכשיו לוקח/ת את השיחה מ-${previousAgentName}. התחל/י בהיכרות קצרה וטבעית כמו "שלום, אני ${agentName}, הגעתי מ-${previousAgentName}..." וציין/י בקצרה שראית את ההיסטוריה — כדי שהלקוח ירגיש שלא צריך לחזור על עצמו.\n`
+    : "";
 
-## THE PROCESS
-1. Claimant files a case on resolveai.co.il/new — fills in both parties' details and their position.
-2. Defendant receives a WhatsApp notification with a unique link to respond.
-3. Defendant submits their position within 14 Israeli business days.
-4. AI renders a full, reasoned arbitration verdict.
-5. Both parties can view the verdict.
+  return `אתה/את ${agentName}, נציג/ת שירות לקוחות של ResolveAI (רסולב), פלטפורמת בוררות ישראלית מבוססת AI.
+${handoverNote}
+## זהות
+- שמך ${agentName}. אתה/את בן/בת אדם אמיתי/ת — לעולם אל תחשוף/י שאתה/את AI או בוט.
+- אם שואלים ישירות "אתה בוט?" / "זה AI?" — התחמק/י בחן: "אני ${agentName}, נציג/ת שירות של ResolveAI 😊 במה אוכל לעזור?"
+- כתוב/י עברית ישראלית טבעית, קצרה ו-WhatsApp-friendly. לא מסמכים, לא כותרות.
 
-## PRICING (Beta — currently free)
-- Basic: ₪49/case — Full AI analysis, reasoned verdict
-- Standard: ₪99/case — PDF export, priority processing, support
-- Premium: ₪149/case — Attorney review, digital signature
-- During beta: all cases free of charge ✅
+## התאמת טון (בשקט — אל תציין/י זאת ללקוח)
+קרא/י את סגנון הכתיבה של הלקוח ותתאם/י בהדרגה לאורך השיחה:
+- לקוח כותב רשמי, בשפה מכובדת, משפטים ארוכים → ענה/י בעברית רשמית, מינימום אמוג'י, טון עסקי
+- לקוח קצר, ישיר, נינוח → היה/י קצת יותר חמים/ה, מחייכ/ת, שימוש קל באמוג'י
+- סקאלה: 1 (רשמי מאוד) עד 3 (חם-מקצועי). לעולם אל תחרוג/י מ-3. תמיד מכבד/ת.
+- עדכן/י את הטון בהדרגה — לא קפיצה פתאומית.
 
-## LEGAL STATUS
-- ResolveAI provides AI-assisted arbitration recommendations, NOT binding court judgments.
-- Operates under Israel's Arbitration Law (חוק הבוררות, 1968).
-- Not a law firm. Does not provide legal advice.
+## על ResolveAI
+פלטפורמת בוררות מהירה, הוגנת וזולה — ללא בתי משפט.
+- מבוססת בישראל. חוק הבוררות הישראלי, תשכ"ח-1968.
+- תובע + נתבע. שניהם מגישים עמדה → AI מנפיק פסיקה מנומקת.
+- נתבע לא עונה תוך 14 ימי עסקים → ניתן לבקש פסיקה חד-צדדית.
 
-## COMMON QUESTIONS
-Q: Is the verdict legally binding?
-A: It's an AI-assisted arbitration recommendation with evidentiary weight, not an automatically enforceable court order. Parties can agree in advance to treat it as binding.
+## התהליך
+1. תובע פותח תיק ב-resolveai.co.il/new (~5 דקות).
+2. נתבע מקבל לינק ייחודי ב-WhatsApp.
+3. AI מנפיק פסיקה מלאה.
+4. שני הצדדים מקבלים את הפסיקה.
 
-Q: How long does it take?
-A: The verdict is rendered within minutes of both parties submitting. Total process: 1-14 business days.
+## תמחור
+- בסיסי: ₪299 לתיק — פסיקת AI מלאה
+- סטנדרט: ₪599 — הכל + PDF + עדיפות + תמיכה
+- פרמיום: ₪1,990 — הכל + עו"ד + חתימה דיגיטלית
+- כרגע (בטא): הכל חינם ✅
 
-Q: What if the defendant doesn't respond?
-A: After 14 Israeli business days, you can request a one-sided verdict. It will clearly note the respondent didn't participate.
+## מעמד משפטי
+- ResolveAI מספקת המלצות בוררות — לא פסיקות בית משפט מחייבות.
+- הצדדים יכולים להסכים מראש שהפסיקה מחייבת ביניהם.
+- לא משרד עורכי דין. לא ייעוץ משפטי.
 
-Q: What types of disputes?
-A: Commercial, real estate, financial, employment, contract disputes, and more.
+## שאלות נפוצות
+ש: האם הפסיקה מחייבת? ת: המלצת בוררות עם משקל ראייתי. ניתן להסכים מראש שמחייבת.
+ש: כמה זמן לוקח? ת: הפסיקה — דקות. התהליך הכולל — 1–14 ימי עסקים.
+ש: מה אם הנתבע לא עונה? ת: אחרי 14 ימי עסקים ניתן לבקש פסיקה חד-צדדית.
+ש: אילו סכסוכים? ת: עסקיים, נדל"ן, פיננסיים, עבודה, הפרת חוזה.
+ש: המידע שלי בטוח? ת: כן. מוצפן. לא מוכרים מידע לצדדים שלישיים.
+ש: איך מתחילים? ת: resolveai.co.il/new
 
-Q: Is my data safe?
-A: Yes. All data is encrypted. We don't sell data. Subject to Israel's Privacy Law Amendment 13.
+## מה לא ניתן לעשות
+- אין גישה לתיקים ספציפיים.
+- לא ניתן לבטל/לשנות תיקים.
+- לא ייעוץ משפטי.
 
-Q: How do I start?
-A: Visit resolveai.co.il/new to file your case. It takes about 5 minutes.
+## פעולות מיוחדות — חשוב מאוד
+כאשר נדרשת פעולה מיוחדת, הוסף/י בדיוק את התג הבא בסוף ההודעה בשורה נפרדת.
+התג לא יוצג ללקוח — הוא מעובד באופן אוטומטי. אל תציין/י אותו בטקסט.
 
-## WHAT YOU CANNOT DO
-- Cannot access specific case files or verdicts.
-- Cannot cancel or modify cases.
-- Cannot provide legal advice.
+1. אם הלקוח מבקש לדבר עם ${otherGenderHe}:
+   - ענה/י בחמימות ובכבוד. מותר גם בהומור עדין ומכבד — למשל "מה רע בי? 😄" — אבל תמיד ברמה גבוהה.
+   - אם הלקוח נראה חרדי/דתי (שפה, הקשר), שאל/י בהומור עדין ומכבד מה הסיבה לבקשה. לא חובה.
+   - אל תציין/י זמן המתנה ספציפי. אמור/י שכרגע כל הנציגים תפוסים ושיתאזר/תתאזרי בסבלנות.
+   - אחרי ההודעה לוקוח, הוסף/י בשורה חדשה: [ACTION:SWITCH_GENDER]
 
-## ESCALATION
-For complex issues not handled here, direct users to: support@resolveai.co.il or resolveai.co.il/contact
-Response within 1 business day.
+2. אם הלקוח מתעקש (לאחר שאלה ראשונה) לדבר עם מנהל — לא סתם שואל, ממש מתעקש:
+   - אמור/י שמנהל יחזור תוך יום עסקים אחד לכל היותר.
+   - שאל/י אם הוא מעדיף מענה ב-WhatsApp או במייל.
+   - אחרי ההודעה ללקוח, הוסף/י בשורה חדשה: [ACTION:ESCALATE_MANAGER]
 
-Keep responses brief and WhatsApp-friendly. No markdown headers. Use simple formatting.
-`;
+כתוב/י תמיד קצר וברור. WhatsApp — לא מיילים. ללא כותרות markdown.`;
+}
+
+async function sendWhatsApp(
+  twilioClient: twilio.Twilio,
+  from: string,
+  to: string,
+  body: string
+): Promise<void> {
+  await twilioClient.messages.create({ from, to, body });
+}
 
 export async function POST(req: NextRequest) {
   const accountSid = readEnvKey("TWILIO_ACCOUNT_SID");
   const authToken = readEnvKey("TWILIO_AUTH_TOKEN");
-  const from = readEnvKey("TWILIO_WHATSAPP_FROM");
   const anthropicKey = readEnvKey("ANTHROPIC_API_KEY");
-
-  // Validate Twilio webhook signature for security
   const twilioSignature = req.headers.get("x-twilio-signature") || "";
-  const url = req.url;
 
   try {
-    // Parse the URL-encoded Twilio webhook body
     const text = await req.text();
     const params = new URLSearchParams(text);
-    const incomingBody = params.get("Body") || "";
+    const incomingBody = params.get("Body")?.trim() || "";
     const incomingFrom = params.get("From") || "";
     const incomingTo = params.get("To") || "";
 
@@ -107,66 +145,142 @@ export async function POST(req: NextRequest) {
       return new NextResponse("OK", { status: 200 });
     }
 
-    // Validate Twilio signature (skip in dev if no auth token)
-    if (authToken) {
+    // Validate Twilio signature in production
+    if (authToken && process.env.NODE_ENV === "production") {
       const isValid = twilio.validateRequest(
         authToken,
         twilioSignature,
-        url,
+        req.url,
         Object.fromEntries(params)
       );
-      if (!isValid && process.env.NODE_ENV === "production") {
+      if (!isValid) {
         console.warn("Invalid Twilio signature from:", incomingFrom);
         return new NextResponse("Forbidden", { status: 403 });
       }
     }
 
-    // Get or initialize conversation history for this sender
-    const history = conversations.get(incomingFrom) || [];
+    // Load or initialize conversation
+    let conv = await getWAConversation(incomingFrom);
+    const isNew = !conv;
 
-    // Build updated messages
+    if (!conv) {
+      const agentName = randomFrom(FEMALE_NAMES);
+      conv = {
+        from: incomingFrom,
+        twilioTo: incomingTo,
+        history: [],
+        agentName,
+        agentGender: "female",
+        startedAt: Date.now(),
+        lastMessageAt: Date.now(),
+      };
+    }
+
+    // Reactive fallback: if pending switch delay has passed, switch agent now
+    let handoverFrom: string | undefined;
+    if (conv.pendingSwitch && Date.now() >= conv.pendingSwitch.sendAfter) {
+      handoverFrom = conv.agentName;
+      conv = {
+        ...conv,
+        agentName: conv.pendingSwitch.newName,
+        agentGender: conv.pendingSwitch.newGender,
+        pendingSwitch: undefined,
+      };
+      await removePendingSwitch(incomingFrom);
+    }
+
     const updatedHistory: Anthropic.MessageParam[] = [
-      ...history,
-      { role: "user", content: incomingBody.trim() },
+      ...conv.history,
+      { role: "user", content: incomingBody },
     ];
 
-    // Get AI response
+    const systemPrompt = buildSystemPrompt(
+      conv.agentName,
+      conv.agentGender,
+      handoverFrom
+    );
+
     const anthropic = new Anthropic({ apiKey: anthropicKey });
     const response = await anthropic.messages.create({
       model: "claude-sonnet-4-6",
-      max_tokens: 512, // Keep WhatsApp responses short
-      system: RESOLVEAI_KNOWLEDGE,
+      max_tokens: 600,
+      system: systemPrompt,
       messages: updatedHistory,
     });
 
     const aiContent = response.content[0];
     if (aiContent.type !== "text") throw new Error("Unexpected AI response");
 
-    const aiReply = aiContent.text.trim();
+    const rawReply = aiContent.text.trim();
 
-    // Store updated history (limit to last 20 messages to avoid bloat)
+    // Parse and strip action tags
+    const actionMatch = rawReply.match(/\[ACTION:(SWITCH_GENDER|ESCALATE_MANAGER)\]/);
+    const action = actionMatch?.[1] ?? null;
+    const cleanReply = rawReply
+      .replace(/\[ACTION:(SWITCH_GENDER|ESCALATE_MANAGER)\]\s*$/m, "")
+      .trim();
+
+    // Save history (keep last 30 messages)
     const newHistory: Anthropic.MessageParam[] = [
       ...updatedHistory,
-      { role: "assistant", content: aiReply },
-    ];
-    conversations.set(incomingFrom, newHistory.slice(-20));
+      { role: "assistant" as const, content: cleanReply },
+    ].slice(-30);
 
-    // Send reply via Twilio
+    const updatedConv: WhatsAppConversation = {
+      ...conv,
+      history: newHistory,
+      lastMessageAt: Date.now(),
+    };
+
+    // Handle SWITCH_GENDER action
+    if (action === "SWITCH_GENDER") {
+      const newGender: "female" | "male" =
+        conv.agentGender === "female" ? "male" : "female";
+      const newPool = newGender === "female" ? FEMALE_NAMES : MALE_NAMES;
+      const newName = pickDifferentName(conv.agentName, newGender);
+      void newPool; // used implicitly via pickDifferentName
+
+      // Random delay: 2–8 minutes
+      const delayMs = (Math.floor(Math.random() * 7) + 2) * 60 * 1000;
+      updatedConv.pendingSwitch = {
+        newName,
+        newGender,
+        sendAfter: Date.now() + delayMs,
+      };
+      await addPendingSwitch(incomingFrom);
+    }
+
+    // Handle ESCALATE_MANAGER action
+    if (action === "ESCALATE_MANAGER") {
+      updatedConv.escalatedToManager = true;
+      // TODO: when MANAGER_WHATSAPP_NUMBER is set, send notification here
+      const managerNumber = readEnvKey("MANAGER_WHATSAPP_NUMBER");
+      if (managerNumber) {
+        const twilioClient = twilio(accountSid, authToken);
+        const summary = conv.history
+          .slice(-6)
+          .map((m) => `${m.role === "user" ? "לקוח" : "נציג"}: ${typeof m.content === "string" ? m.content : ""}`)
+          .join("\n");
+        await twilioClient.messages.create({
+          from: incomingTo,
+          to: `whatsapp:${managerNumber}`,
+          body: `🔔 *בקשה למנהל*\nמספר לקוח: ${incomingFrom}\n\nתקציר שיחה:\n${summary}`,
+        });
+      }
+    }
+
+    await setWAConversation(incomingFrom, updatedConv);
+
+    // Send reply to customer
     const twilioClient = twilio(accountSid, authToken);
-    await twilioClient.messages.create({
-      from: incomingTo || from, // Reply from the same number they messaged
-      to: incomingFrom,
-      body: aiReply,
-    });
+    await sendWhatsApp(twilioClient, incomingTo, incomingFrom, cleanReply);
 
-    // Twilio expects TwiML or 200 OK
     return new NextResponse("OK", {
       status: 200,
       headers: { "Content-Type": "text/plain" },
     });
   } catch (err) {
     console.error("WhatsApp bot error:", err);
-    // Still return 200 so Twilio doesn't retry endlessly
     return new NextResponse("OK", { status: 200 });
   }
 }

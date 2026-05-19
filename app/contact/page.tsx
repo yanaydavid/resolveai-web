@@ -13,8 +13,8 @@ interface Message {
 type ConversationTurn = { role: "user" | "assistant"; content: string };
 
 const GREETINGS = {
-  he: "שלום! אני Resolve, הנציג החכם של ResolveAI 👋\n\nאשמח לענות על כל שאלה בנוגע לפלטפורמה, התהליך, התמחור, או כל נושא אחר. כיצד אוכל לסייע לך היום?",
-  en: "Hello! I'm Resolve, ResolveAI's smart assistant 👋\n\nI'm here to answer any questions about the platform, process, pricing, or anything else. How can I help you today?",
+  he: "שלום! אני מיכל מצוות התמיכה של ResolveAI 😊\n\nאשמח לענות על כל שאלה בנוגע לפלטפורמה, התהליך, התמחור, או כל נושא אחר. במה אוכל לעזור?",
+  en: "Hello! I'm Michal from the ResolveAI support team 😊\n\nI'm here to answer any questions about the platform, process, pricing, or anything else. How can I help you?",
 };
 
 function ChatBubble({
@@ -102,6 +102,11 @@ export default function ContactPage() {
   const { lang } = useLanguage();
   const isRtl = lang === "he";
 
+  const [userEmail, setUserEmail] = useState("");
+  const [userName, setUserName] = useState("");
+  const [emailSubmitted, setEmailSubmitted] = useState(false);
+  const [emailError, setEmailError] = useState("");
+
   const [messages, setMessages] = useState<Message[]>([
     { role: "assistant", content: GREETINGS[lang] },
   ]);
@@ -132,6 +137,19 @@ export default function ContactPage() {
     ta.style.height = Math.min(ta.scrollHeight, 140) + "px";
   }, [input]);
 
+  function handleEmailSubmit() {
+    if (!userName.trim()) {
+      setEmailError(lang === "he" ? "נא להזין שם" : "Please enter your name");
+      return;
+    }
+    if (!userEmail.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(userEmail)) {
+      setEmailError(lang === "he" ? "נא להזין כתובת מייל תקינה" : "Please enter a valid email");
+      return;
+    }
+    setEmailError("");
+    setEmailSubmitted(true);
+  }
+
   async function sendMessage() {
     const text = input.trim();
     if (!text || isLoading) return;
@@ -150,6 +168,8 @@ export default function ContactPage() {
         body: JSON.stringify({
           message: text,
           conversationHistory,
+          userEmail,
+          userName,
         }),
       });
 
@@ -245,7 +265,95 @@ export default function ContactPage() {
           </div>
         </div>
 
+        {/* Email Collection Step */}
+        {!emailSubmitted && (
+          <div className="max-w-md w-full mx-auto px-4 py-12">
+            <div
+              className="rounded-xl p-8"
+              style={{ backgroundColor: "white", border: "1px solid hsl(42 30% 85%)" }}
+            >
+              <h2
+                className="text-xl font-semibold mb-2 text-center"
+                style={{ color: "var(--ra-navy-950)", fontFamily: "var(--font-sans)" }}
+              >
+                {lang === "he" ? "לפני שנתחיל" : "Before we begin"}
+              </h2>
+              <p
+                className="text-sm text-center mb-6"
+                style={{ color: "hsl(215 15% 55%)", fontFamily: "var(--font-sans)" }}
+              >
+                {lang === "he"
+                  ? "נשלח לך עותק מהשיחה למייל"
+                  : "We'll send you a copy of the conversation by email"}
+              </p>
+              <div className="flex flex-col gap-4">
+                <div>
+                  <label
+                    className="block text-xs font-semibold mb-1"
+                    style={{ color: "var(--ra-navy-800)", fontFamily: "var(--font-sans)" }}
+                  >
+                    {lang === "he" ? "שם מלא" : "Full Name"}
+                  </label>
+                  <input
+                    type="text"
+                    value={userName}
+                    onChange={(e) => setUserName(e.target.value)}
+                    dir={isRtl ? "rtl" : "ltr"}
+                    placeholder={lang === "he" ? "ישראל ישראלי" : "John Smith"}
+                    className="w-full px-4 py-3 rounded-lg text-sm outline-none"
+                    style={{
+                      border: "1px solid hsl(42 30% 80%)",
+                      fontFamily: "var(--font-sans)",
+                      color: "hsl(215 20% 25%)",
+                    }}
+                    onKeyDown={(e) => e.key === "Enter" && handleEmailSubmit()}
+                  />
+                </div>
+                <div>
+                  <label
+                    className="block text-xs font-semibold mb-1"
+                    style={{ color: "var(--ra-navy-800)", fontFamily: "var(--font-sans)" }}
+                  >
+                    {lang === "he" ? "כתובת מייל" : "Email Address"}
+                  </label>
+                  <input
+                    type="email"
+                    value={userEmail}
+                    onChange={(e) => setUserEmail(e.target.value)}
+                    dir="ltr"
+                    placeholder="email@example.com"
+                    className="w-full px-4 py-3 rounded-lg text-sm outline-none"
+                    style={{
+                      border: "1px solid hsl(42 30% 80%)",
+                      fontFamily: "var(--font-sans)",
+                      color: "hsl(215 20% 25%)",
+                    }}
+                    onKeyDown={(e) => e.key === "Enter" && handleEmailSubmit()}
+                  />
+                </div>
+                {emailError && (
+                  <p className="text-xs" style={{ color: "hsl(0 65% 45%)", fontFamily: "var(--font-sans)" }}>
+                    {emailError}
+                  </p>
+                )}
+                <button
+                  onClick={handleEmailSubmit}
+                  className="w-full py-3 text-sm font-semibold rounded-lg transition-all"
+                  style={{
+                    backgroundColor: "var(--ra-navy-800)",
+                    color: "var(--ra-cream-50)",
+                    fontFamily: "var(--font-sans)",
+                  }}
+                >
+                  {lang === "he" ? "המשך לצ'אט" : "Start Chat"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Chat Container */}
+        {emailSubmitted && (
         <div className="max-w-3xl w-full mx-auto px-4 py-8 flex flex-col flex-1 gap-0">
           {/* Chat Window */}
           <div
@@ -276,13 +384,13 @@ export default function ContactPage() {
                   className="text-sm font-semibold"
                   style={{ color: "var(--ra-cream-50)", fontFamily: "var(--font-sans)" }}
                 >
-                  Resolve
+                  {lang === "he" ? "מיכל" : "Michal"}
                 </p>
                 <p
                   className="text-xs"
                   style={{ color: "hsl(42 30% 55%)", fontFamily: "var(--font-sans)" }}
                 >
-                  {lang === "he" ? "נציג ResolveAI • מקוון" : "ResolveAI Agent • Online"}
+                  {lang === "he" ? "צוות התמיכה של ResolveAI • מקוון" : "ResolveAI Support • Online"}
                 </p>
               </div>
               <div
@@ -418,6 +526,7 @@ export default function ContactPage() {
             </p>
           </div>
         </div>
+        )}
       </main>
 
       <RaFooter />

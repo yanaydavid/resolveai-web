@@ -6,8 +6,8 @@
 
 @theme inline {
   /* Fonts */
-  --font-sans: var(--font-frank-ruhl), var(--font-baskerville), Georgia, "Times New Roman", serif;
-  --font-display: var(--font-cormorant), var(--font-frank-ruhl), Georgia, "Times New Roman", serif;
+  --font-sans: var(--font-rubik), Arial, sans-serif;
+  --font-display: var(--font-rubik), Arial, sans-serif;
   --font-mono: ui-monospace, "Courier New", monospace;
 
   /* shadcn core tokens */

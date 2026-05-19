@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import twilio from "twilio";
 import Anthropic from "@anthropic-ai/sdk";
 import { sendClaimConfirmation, sendClaimNotificationToDefendant } from "@/lib/email";
 import { storeCase } from "@/lib/kv-store";
+import { verifyPaymentToken, markTokenUsed, isPaymentEnabled } from "@/lib/payment";
 
 function readEnvKey(key: string): string {
   if (process.env[key]) return process.env[key]!;
@@ -24,6 +24,7 @@ export async function POST(req: NextRequest) {
     const caseTitle     = formData.get("caseTitle")     as string;
     const partyOneName  = formData.get("partyOneName")  as string;
     const partyOneEmail = formData.get("partyOneEmail") as string;
+    const partyOnePhone = formData.get("partyOnePhone") as string | null;
     const partyTwoName  = formData.get("partyTwoName")  as string;
     const partyTwoEmail = formData.get("partyTwoEmail") as string;
     const partyTwoPhone = formData.get("partyTwoPhone") as string | null;
@@ -31,9 +32,21 @@ export async function POST(req: NextRequest) {
     const description   = formData.get("description")   as string;
     const lang          = (formData.get("lang") as string) || "he";
     const file          = formData.get("document")      as File | null;
+    const paymentToken  = formData.get("paymentToken")  as string | null;
 
     if (!caseTitle || !partyOneName || !partyTwoName || !description) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    }
+
+    // ── Payment gate ──────────────────────────────────────────
+    if (isPaymentEnabled()) {
+      if (!paymentToken) {
+        return NextResponse.json({ error: "Payment required" }, { status: 402 });
+      }
+      const tokenRecord = await verifyPaymentToken(paymentToken);
+      if (!tokenRecord) {
+        return NextResponse.json({ error: "Invalid or expired payment token" }, { status: 402 });
+      }
     }
 
     if (!file) {
@@ -159,40 +172,11 @@ export async function POST(req: NextRequest) {
       // Not critical
     }
 
-    // ── Send WhatsApp ─────────────────────────────────────────
-    const accountSid = readEnvKey("TWILIO_ACCOUNT_SID");
-    const authToken  = readEnvKey("TWILIO_AUTH_TOKEN");
-    const from       = readEnvKey("TWILIO_WHATSAPP_FROM");
+    // WhatsApp is now sent by the claimant directly via wa.me link on the success page
 
-    let whatsappError: string | null = null;
-    let whatsappSid: string | null = null;
-
-    if (partyTwoPhone && accountSid && authToken) {
-      try {
-        const client = twilio(accountSid, authToken);
-
-        let phone = partyTwoPhone.replace(/\D/g, "");
-        if (phone.startsWith("0")) phone = "972" + phone.slice(1);
-        if (!phone.startsWith("+")) phone = "+" + phone;
-
-        const message =
-          lang === "he"
-            ? `*ResolveAI — הודעה רשמית*\n\nשלום ${partyTwoName},\n\n${partyOneName} הגיש/ה נגדך בקשה לבוררות ב-ResolveAI.\n\n*פרטי התיק:*\n• מספר תיק: ${caseId}\n• כותרת: ${caseTitle}\n• קטגוריה: ${categoryLabel}\n\n*יש לך זכות להגיש את עמדתך לפני מתן הפסיקה.*\n\nלחץ/י על הקישור הבא להגשת תגובתך:\n${shortUrl}\n\n_ResolveAI — בוררות חכמה מבוססת בינה מלאכותית_`
-            : `*ResolveAI — Official Notice*\n\nDear ${partyTwoName},\n\n${partyOneName} has filed an arbitration request against you on ResolveAI.\n\n*Case Details:*\n• Case ID: ${caseId}\n• Title: ${caseTitle}\n• Category: ${categoryLabel}\n\n*You have the right to submit your position before a decision is rendered.*\n\nClick the link below to submit your response:\n${shortUrl}\n\n_ResolveAI — Smart AI-Powered Arbitration_`;
-
-        const msg = await client.messages.create({
-          from,
-          to: `whatsapp:${phone}`,
-          body: message,
-        });
-        whatsappSid = msg.sid;
-      } catch (err: unknown) {
-        const e = err as { message?: string };
-        whatsappError = e?.message || String(err);
-        console.error("WhatsApp send error:", whatsappError);
-      }
-    } else {
-      whatsappError = `missing: phone=${!!partyTwoPhone} sid=${!!accountSid} token=${!!authToken} from=${!!from}`;
+    // ── Consume payment token (idempotent — no-op in beta) ────
+    if (paymentToken) {
+      try { await markTokenUsed(paymentToken); } catch { /* non-fatal */ }
     }
 
     // ── Store in KV ───────────────────────────────────────────
@@ -201,8 +185,10 @@ export async function POST(req: NextRequest) {
       caseTitle,
       partyOneName,
       partyOneEmail,
+      partyOnePhone: partyOnePhone || undefined,
       partyTwoName,
       partyTwoEmail,
+      partyTwoPhone: partyTwoPhone || undefined,
       category,
       description,
       submittedAt: new Date().toISOString(),
@@ -251,8 +237,6 @@ export async function POST(req: NextRequest) {
       respondUrl,
       shortUrl,
       token,
-      whatsappSid,
-      whatsappError,
       documentSummary,
       nameFoundInDoc,
     });

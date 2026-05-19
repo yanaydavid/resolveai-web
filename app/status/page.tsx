@@ -24,6 +24,21 @@ const CATEGORY_HE: Record<string, string> = {
   other: "אחר",
 };
 
+/** Count Israeli business days (Sun–Thu) since a date */
+function israeliBusinessDaysSince(submittedAt: string): number {
+  const start = new Date(submittedAt);
+  const now = new Date();
+  let count = 0;
+  const cursor = new Date(start);
+  cursor.setDate(cursor.getDate() + 1);
+  while (cursor <= now) {
+    const day = cursor.getDay();
+    if (day !== 5 && day !== 6) count++;
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return count;
+}
+
 function StatusContent() {
   const params = useSearchParams();
   const [caseId, setCaseId] = useState(params.get("id") || "");
@@ -31,6 +46,9 @@ function StatusContent() {
   const [data, setData] = useState<Record<string, string> | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [requestingVerdict, setRequestingVerdict] = useState(false);
+  const [verdictRequested, setVerdictRequested] = useState(false);
+  const [verdictError, setVerdictError] = useState("");
 
   useEffect(() => {
     if (params.get("id") && params.get("email")) {
@@ -110,11 +128,60 @@ function StatusContent() {
               )}
             </div>
 
-            {data.status === "pending" && (
-              <div style={{ marginTop: "20px", background: "#fff8e1", borderRight: "4px solid #f59e0b", padding: "14px", fontSize: "13px", color: "#92400e" }}>
-                ממתינים לתגובת הנתבע. לאחר קבלת התגובה תינתן פסיקה ותישלח אליך במייל.
-              </div>
-            )}
+            {data.status === "pending" && (() => {
+              const daysPassed = israeliBusinessDaysSince(data.submittedAt);
+              const canRequest = data.isClaimant === "true" && daysPassed >= 14;
+              const daysRemaining = Math.max(0, 14 - daysPassed);
+              return (
+                <div style={{ marginTop: "20px" }}>
+                  <div style={{ background: "#fff8e1", borderRight: "4px solid #f59e0b", padding: "14px", fontSize: "13px", color: "#92400e", marginBottom: canRequest ? "14px" : "0" }}>
+                    {canRequest
+                      ? "הנתבע לא הגיב תוך 14 ימי עסקים. באפשרותך לבקש פסיקה על בסיס עמדתך בלבד."
+                      : `ממתינים לתגובת הנתבע. ${daysRemaining > 0 ? `נותרו ${daysRemaining} ימי עסקים עד שתוכל לבקש פסיקה חד-צדדית.` : "ממתינים לתגובה."}`
+                    }
+                  </div>
+                  {canRequest && !verdictRequested && (
+                    <div>
+                      {verdictError && (
+                        <p style={{ color: "#ef4444", fontSize: "13px", marginBottom: "8px" }}>{verdictError}</p>
+                      )}
+                      <button
+                        onClick={async () => {
+                          if (!confirm("האם אתה בטוח שברצונך לבקש פסיקה חד-צדדית? הפסיקה תינתן על בסיס עמדתך בלבד ותציין שהנתבע לא הגיב.")) return;
+                          setRequestingVerdict(true);
+                          setVerdictError("");
+                          try {
+                            const res = await fetch("/api/one-sided-verdict", {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ caseId: data.caseId, email }),
+                            });
+                            if (res.ok) {
+                              setVerdictRequested(true);
+                            } else {
+                              const err = await res.json();
+                              setVerdictError(err.error || "שגיאה בבקשת הפסיקה");
+                            }
+                          } catch {
+                            setVerdictError("שגיאה בחיבור לשרת");
+                          }
+                          setRequestingVerdict(false);
+                        }}
+                        disabled={requestingVerdict}
+                        style={{ width: "100%", padding: "14px", backgroundColor: requestingVerdict ? "#6b7280" : "#1a2744", color: "white", border: "none", borderRadius: "4px", fontSize: "14px", fontWeight: "bold", cursor: requestingVerdict ? "not-allowed" : "pointer", marginTop: "8px" }}
+                      >
+                        {requestingVerdict ? "מייצר פסיקה... (עשוי לקחת עד דקה)" : "⚖️ בקש פסיקה חד-צדדית"}
+                      </button>
+                    </div>
+                  )}
+                  {verdictRequested && (
+                    <div style={{ background: "#ecfdf5", borderRight: "4px solid #10b981", padding: "14px", fontSize: "13px", color: "#065f46", marginTop: "8px" }}>
+                      הפסיקה הופקה ונשלחה למייל שלך. הפסיקה מציינת שהנתבע לא הגיב להליך.
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
             {data.status === "responded" && (
               <div style={{ marginTop: "20px", background: "#eff6ff", borderRight: "4px solid #3b82f6", padding: "14px", fontSize: "13px", color: "#1d4ed8" }}>
                 תגובת הנתבע התקבלה. הפסיקה בהכנה ותישלח אליך בקרוב.

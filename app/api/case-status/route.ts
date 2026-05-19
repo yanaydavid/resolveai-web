@@ -19,14 +19,19 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const isClaimant = caseData.partyOneEmail === email;
+
   return NextResponse.json({
     caseId: caseData.caseId,
     caseTitle: caseData.caseTitle,
     partyOneName: caseData.partyOneName,
+    partyOneEmail: caseData.partyOneEmail,
     partyTwoName: caseData.partyTwoName,
     category: caseData.category,
     submittedAt: caseData.submittedAt,
     status: caseData.status,
     documentSummary: caseData.documentSummary,
+    isClaimant,
+    description: isClaimant ? caseData.description : undefined,
   });
 }

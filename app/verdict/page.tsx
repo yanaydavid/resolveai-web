@@ -442,7 +442,7 @@ export default function VerdictPage() {
           </div>
 
           {/* Actions */}
-          <div className="flex flex-col sm:flex-row gap-4">
+          <div className="flex flex-col sm:flex-row gap-4 flex-wrap">
             <button
               onClick={() => window.print()}
               className="inline-block px-8 py-4 text-xs tracking-[0.15em] uppercase font-semibold text-center transition-colors no-print"
@@ -464,6 +464,26 @@ export default function VerdictPage() {
             >
               🖨️ {v.print}
             </button>
+
+            <Link
+              href={`/new-hearing?caseId=${verdict.caseId}`}
+              className="inline-block px-8 py-4 text-xs tracking-[0.15em] uppercase font-semibold text-center transition-colors no-print"
+              style={{
+                backgroundColor: "var(--ra-navy-700)",
+                color: "var(--ra-cream-50)",
+                fontFamily: "var(--font-sans)",
+              }}
+              onMouseEnter={(e) =>
+                ((e.currentTarget as HTMLElement).style.backgroundColor =
+                  "var(--ra-navy-900)")
+              }
+              onMouseLeave={(e) =>
+                ((e.currentTarget as HTMLElement).style.backgroundColor =
+                  "var(--ra-navy-700)")
+              }
+            >
+              {v.newHearingBtn}
+            </Link>
 
             <Link
               href="/new"

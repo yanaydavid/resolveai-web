@@ -8,6 +8,18 @@
     },
     "app/api/submit-claim/route.ts": {
       "maxDuration": 60
+    },
+    "app/api/new-hearing/one-sided/route.ts": {
+      "maxDuration": 300
+    },
+    "app/api/cron/hearing-deadlines/route.ts": {
+      "maxDuration": 300
     }
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/cron/hearing-deadlines",
+      "schedule": "0 8 * * *"
+    }
+  ]
 }

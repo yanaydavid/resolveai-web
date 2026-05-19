@@ -79,7 +79,7 @@ export default function LandingPage() {
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link
-                href="/new"
+                href="/pricing"
                 className="inline-block px-10 py-4 text-xs tracking-[0.2em] uppercase font-semibold transition-colors"
                 style={{
                   backgroundColor: "var(--ra-gold-500)",
@@ -132,7 +132,7 @@ export default function LandingPage() {
           <div className="max-w-6xl mx-auto px-6">
             <div className="text-center mb-20">
               <p
-                className="text-xs tracking-[0.3em] uppercase mb-4"
+                className="text-sm tracking-[0.3em] uppercase mb-4"
                 style={{
                   color: "var(--ra-gold-500)",
                   fontFamily: "var(--font-sans)",
@@ -209,7 +209,7 @@ export default function LandingPage() {
           <div className="max-w-6xl mx-auto px-6">
             <div className="text-center mb-20">
               <p
-                className="text-xs tracking-[0.3em] uppercase mb-4"
+                className="text-sm tracking-[0.3em] uppercase mb-4"
                 style={{
                   color: "var(--ra-gold-300)",
                   fontFamily: "var(--font-sans)",
@@ -279,7 +279,7 @@ export default function LandingPage() {
           <div className="max-w-6xl mx-auto px-6">
             <div className="text-center mb-20">
               <p
-                className="text-xs tracking-[0.3em] uppercase mb-4"
+                className="text-sm tracking-[0.3em] uppercase mb-4"
                 style={{
                   color: "var(--ra-gold-500)",
                   fontFamily: "var(--font-sans)",
